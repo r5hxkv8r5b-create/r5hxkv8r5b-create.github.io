@@ -1,0 +1,660 @@
+// Bluetooth Search - Simplified Nancy Guthrie Finder (Expo App)
+// App.tsx snapshot from NancyGuthrieFinderExpo (crash-resistant version)
+
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  Platform,
+  PermissionsAndroid,
+  SafeAreaView,
+  Linking,
+} from 'react-native';
+import * as Location from 'expo-location';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
+import BleManager from 'react-native-ble-manager';
+
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+
+// Set to null until API is deployed (no uploads, just local logging)
+const API_ENDPOINT: string | null = null; // Change to your API when ready
+
+const CONSENT_TEXT = `Nancy Guthrie, 84, has been missing since January 31, 2026. She has a pacemaker that emits a Bluetooth signal.
+
+By using this app, you consent to:
+• Bluetooth scanning for all nearby devices
+• GPS location tracking
+• Data sharing with law enforcement
+• Battery usage for continuous scanning
+
+This is solely for locating Nancy Guthrie.`;
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface DetectedDevice {
+  id: string;
+  name: string;
+  rssi: number;
+  macAddress: string | null;
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+export default function App() {
+  // State
+  const [scanning, setScanning] = useState(false);
+  const [devices, setDevices] = useState<DetectedDevice[]>([]);
+  const [scanCount, setScanCount] = useState(0);
+  const [uploadCount, setUploadCount] = useState(0);
+  const [consentGiven, setConsentGiven] = useState(false);
+  const [userId] = useState(
+    `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  );
+  const [deviceId, setDeviceId] = useState('');
+
+  const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ============================================================================
+  // INITIALIZATION
+  // ============================================================================
+
+  useEffect(() => {
+    console.log('========================================');
+    console.log('APP STARTING');
+    console.log('========================================');
+    initializeApp();
+
+    return () => {
+      console.log('APP CLEANUP');
+      if (scanIntervalRef.current) {
+        clearInterval(scanIntervalRef.current);
+      }
+      try {
+        BleManager.stopScan();
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
+  const initializeApp = async () => {
+    try {
+      console.log('[1/3] Starting BLE Manager…');
+      await BleManager.start({ showAlert: false });
+      console.log('[1/3] ✓ BLE Manager started');
+
+      console.log('[2/3] Getting device ID…');
+      const uniqueId =
+        (Constants as any).sessionId || (Device as any).modelId || 'unknown';
+      setDeviceId(uniqueId);
+      console.log('[2/3] ✓ Device ID:', uniqueId);
+
+      console.log('[3/3] ✓ Initialization complete');
+    } catch (error: any) {
+      console.error('INIT ERROR:', error);
+      Alert.alert(
+        'Initialization Failed',
+        `Please restart the app.\n\n${error?.message || 'Unknown error'}`,
+      );
+    }
+  };
+
+  // ============================================================================
+  // PERMISSIONS
+  // ============================================================================
+
+  const requestLocationPermission = async (): Promise<boolean> => {
+    try {
+      console.log('Requesting location permission…');
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert(
+          'Location Permission Required',
+          'This app needs location access for Bluetooth scanning.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ],
+        );
+        return false;
+      }
+
+      console.log('✓ Location permission granted');
+      return true;
+    } catch (error) {
+      console.error('Location permission error:', error);
+      return false;
+    }
+  };
+
+  const requestBluetoothPermissions = async (): Promise<boolean> => {
+    if (Platform.OS === 'android') {
+      try {
+        const apiLevel = Platform.Version as number;
+        console.log('Android API level:', apiLevel);
+
+        if (apiLevel >= 31) {
+          const granted = await PermissionsAndroid.requestMultiple([
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          ]);
+
+          const allGranted =
+            granted['android.permission.BLUETOOTH_SCAN'] ===
+              PermissionsAndroid.RESULTS.GRANTED &&
+            granted['android.permission.BLUETOOTH_CONNECT'] ===
+              PermissionsAndroid.RESULTS.GRANTED &&
+            granted['android.permission.ACCESS_FINE_LOCATION'] ===
+              PermissionsAndroid.RESULTS.GRANTED;
+
+          console.log('Android permissions granted:', allGranted);
+          return allGranted;
+        }
+      } catch (error) {
+        console.error('Android permission error:', error);
+        return false;
+      }
+    }
+
+    // iOS - permissions handled by system prompts
+    return true;
+  };
+
+  // ============================================================================
+  // CONSENT
+  // ============================================================================
+
+  const handleConsent = () => {
+    Alert.alert(
+      'Consent Required',
+      'By using this app, you consent to:\n\n' +
+        '• Bluetooth scanning for all nearby devices\n' +
+        '• GPS location tracking\n' +
+        '• Data sharing with law enforcement\n' +
+        '• Battery usage for continuous scanning\n\n' +
+        'This is solely for locating Nancy Guthrie.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'I Consent',
+          onPress: () => {
+            setConsentGiven(true);
+            Alert.alert('Success', 'You can now start scanning');
+          },
+        },
+      ],
+    );
+  };
+
+  // ============================================================================
+  // SCANNING
+  // ============================================================================
+
+  const startScanning = async () => {
+    console.log('========================================');
+    console.log('START SCANNING BUTTON PRESSED');
+    console.log('========================================');
+
+    try {
+      if (!consentGiven) {
+        Alert.alert('Consent Required', 'Please give consent before scanning');
+        return;
+      }
+
+      // Step 1: Location permission
+      console.log('Step 1: Requesting location permission...');
+      const hasLocation = await requestLocationPermission();
+      if (!hasLocation) {
+        console.log('Location permission denied - stopping');
+        return;
+      }
+
+      // Step 2: Bluetooth permissions
+      console.log('Step 2: Requesting Bluetooth permissions...');
+      const hasBluetooth = await requestBluetoothPermissions();
+      if (!hasBluetooth) {
+        console.log('Bluetooth permission denied - stopping');
+        Alert.alert('Permission Required', 'Bluetooth permissions are required');
+        return;
+      }
+
+      // Step 3: Check Bluetooth state (best-effort)
+      console.log('Step 3: Checking Bluetooth state...');
+      let bluetoothOn = false;
+      try {
+        const state = await (BleManager as any).checkState();
+        console.log('Bluetooth state:', state);
+        bluetoothOn = state === 'on' || state === 'PoweredOn';
+      } catch (stateError) {
+        console.log('Could not check Bluetooth state:', stateError);
+        bluetoothOn = true; // assume it's on rather than crashing
+      }
+
+      if (!bluetoothOn) {
+        Alert.alert(
+          'Bluetooth is Off',
+          'Please turn on Bluetooth in your iPhone settings.',
+        );
+        return;
+      }
+
+      // Step 4: Start scanning
+      console.log('Step 4: Starting scan...');
+      setScanning(true);
+      setDevices([]);
+
+      await performScan();
+
+      console.log('Step 5: Setting up scan interval...');
+      scanIntervalRef.current = setInterval(async () => {
+        console.log('--- Interval scan triggered ---');
+        await performScan();
+      }, 15000); // every 15 seconds
+
+      console.log('✓ SCANNING STARTED SUCCESSFULLY');
+    } catch (error: any) {
+      console.error('START SCANNING ERROR:', error);
+      Alert.alert(
+        'Scan Failed',
+        `Could not start scanning.\n\nError: ${error?.message || 'Unknown error'}`,
+      );
+      setScanning(false);
+      if (scanIntervalRef.current) {
+        clearInterval(scanIntervalRef.current);
+        scanIntervalRef.current = null;
+      }
+    }
+  };
+
+  const stopScanning = () => {
+    console.log('STOPPING SCAN');
+    setScanning(false);
+
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+
+    try {
+      BleManager.stopScan();
+    } catch (e) {
+      console.log('Stop scan error (ignorable):', e);
+    }
+  };
+
+  const performScan = async () => {
+    console.log('>>> performScan() START');
+
+    try {
+      setDevices([]);
+
+      console.log('Calling BleManager.scan()...');
+      await BleManager.scan([], 5, false); // 5s scan, no duplicates
+      console.log('Scan started, waiting 6 seconds for results...');
+
+      await new Promise(resolve => setTimeout(resolve, 6000));
+
+      console.log('Getting discovered peripherals...');
+      const peripherals = await BleManager.getDiscoveredPeripherals();
+      console.log(`Found ${peripherals.length} devices`);
+
+      if (peripherals.length === 0) {
+        setScanCount(prev => prev + 1);
+        return;
+      }
+
+      const detectedDevices: DetectedDevice[] = [];
+      peripherals.forEach((p: any, index: number) => {
+        console.log(`Device ${index + 1}: ${p.name || 'Unknown'} (${p.id})`);
+        detectedDevices.push({
+          id: p.id || 'unknown',
+          name:
+            p.name || (p.advertising && p.advertising.localName) || 'Unknown Device',
+          rssi: typeof p.rssi === 'number' ? p.rssi : -100,
+          macAddress: Platform.OS === 'android' ? p.id : null,
+        });
+      });
+
+      setDevices(detectedDevices);
+      setScanCount(prev => prev + 1);
+
+      console.log('Starting uploads...');
+      for (let i = 0; i < detectedDevices.length; i++) {
+        try {
+          await uploadScanData(detectedDevices[i]);
+        } catch (uploadError: any) {
+          console.error(`Upload ${i + 1} failed:`, uploadError?.message);
+        }
+      }
+
+      console.log('>>> performScan() COMPLETE');
+    } catch (error: any) {
+      console.error('>>> performScan() ERROR:', error);
+      // do not stop scanning, just log
+    }
+  };
+
+  // ============================================================================
+  // DATA UPLOAD
+  // ============================================================================
+
+  const uploadScanData = async (device: DetectedDevice) => {
+    if (!API_ENDPOINT) {
+      console.log('Skipping upload - no API endpoint configured');
+      setUploadCount(prev => prev + 1);
+      return;
+    }
+
+    try {
+      console.log('Getting location for upload...');
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        timeout: 5000,
+      });
+
+      const scanData = {
+        userId,
+        deviceUniqueId: deviceId,
+        deviceId: device.id,
+        deviceName: device.name,
+        deviceMac: device.macAddress,
+        rssi: device.rssi,
+        timestamp: new Date().toISOString(),
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        accuracy: location.coords.accuracy,
+        platform: Platform.OS,
+      };
+
+      console.log('Uploading:', device.name);
+
+      const response = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(scanData),
+      });
+
+      if (response.ok) {
+        console.log('✓ Upload successful');
+        setUploadCount(prev => prev + 1);
+      } else {
+        console.log('Upload failed:', response.status);
+      }
+    } catch (error: any) {
+      console.error('Upload error:', error?.message || error);
+    }
+  };
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Help Find Nancy Guthrie</Text>
+        <Text style={styles.headerSubtitle}>Bluetooth Scanner</Text>
+      </View>
+
+      {/* Content */}
+      <ScrollView style={styles.content}>
+        {!consentGiven ? (
+          // Consent screen
+          <View style={styles.consentBox}>
+            <Text style={styles.consentTitle}>⚠️ Consent Required</Text>
+            <Text style={styles.consentText}>{CONSENT_TEXT}</Text>
+            <TouchableOpacity style={styles.consentButton} onPress={handleConsent}>
+              <Text style={styles.buttonText}>I Give Consent</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          // Main screen
+          <>
+            {/* Stats */}
+            <View style={styles.stats}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{scanCount}</Text>
+                <Text style={styles.statLabel}>Scans</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{devices.length}</Text>
+                <Text style={styles.statLabel}>Devices</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{uploadCount}</Text>
+                <Text style={styles.statLabel}>Uploaded</Text>
+              </View>
+            </View>
+
+            {/* Scan button */}
+            {!scanning ? (
+              <TouchableOpacity style={styles.startButton} onPress={startScanning}>
+                <Text style={styles.buttonText}>Start Scanning</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.stopButton} onPress={stopScanning}>
+                <Text style={styles.buttonText}>Stop Scanning</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Platform info */}
+            <View style={styles.infoBox}>
+              <Text style={styles.infoTitle}>Platform: {Platform.OS}</Text>
+              <Text style={styles.infoText}>
+                Device ID: {deviceId ? deviceId.substring(0, 20) + '…' : 'unknown'}
+              </Text>
+              <Text style={styles.infoText}>
+                {Platform.OS === 'ios'
+                  ? '⚠️ iOS provides UUIDs only (Apple can reverse-engineer with FBI)'
+                  : '✓ Android reports actual MAC addresses'}
+              </Text>
+            </View>
+
+            {/* Devices list */}
+            {devices.length > 0 && (
+              <View style={styles.devicesList}>
+                <Text style={styles.devicesTitle}>
+                  Recently Detected ({devices.length} devices):
+                </Text>
+                {devices.slice(0, 10).map((device, index) => (
+                  <View key={index} style={styles.deviceItem}>
+                    <Text style={styles.deviceName}>{device.name}</Text>
+                    <Text style={styles.deviceId}>
+                      {device.macAddress
+                        ? `MAC: ${device.macAddress}`
+                        : `UUID: ${device.id.substring(0, 30)}…`}
+                    </Text>
+                    <Text style={styles.deviceRssi}>Signal: {device.rssi} dBm</Text>
+                  </View>
+                ))}
+                {devices.length > 10 && (
+                  <Text style={styles.moreDevices}>
+                    + {devices.length - 10} more devices
+                  </Text>
+                )}
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Emergency: FBI Tip Line 1-800-CALL-FBI</Text>
+        <Text style={styles.footerText}>Reward: $100,000</Text>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+// ============================================================================
+// STYLES
+// ============================================================================
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    backgroundColor: '#d32f2f',
+    padding: 20,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: 'white',
+    marginTop: 5,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  consentBox: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#d32f2f',
+  },
+  consentTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#d32f2f',
+    marginBottom: 15,
+  },
+  consentText: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  consentButton: {
+    backgroundColor: '#388e3c',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  stats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#1976d2',
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+  },
+  startButton: {
+    backgroundColor: '#388e3c',
+    padding: 18,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  stopButton: {
+    backgroundColor: '#d32f2f',
+    padding: 18,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  infoBox: {
+    backgroundColor: '#e3f2fd',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  infoText: {
+    fontSize: 14,
+    marginBottom: 5,
+  },
+  devicesList: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  devicesTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+  },
+  deviceItem: {
+    padding: 15,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  deviceName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  deviceId: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 3,
+  },
+  deviceRssi: {
+    fontSize: 12,
+    color: '#1976d2',
+  },
+  moreDevices: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  footer: {
+    backgroundColor: '#333',
+    padding: 15,
+    alignItems: 'center',
+  },
+  footerText: {
+    color: 'white',
+    fontSize: 12,
+  },
+});

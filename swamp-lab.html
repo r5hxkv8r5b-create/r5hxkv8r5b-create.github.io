@@ -92,8 +92,15 @@
   <!-- LAB -->
   <div id="tab-lab">
     <div class="panel hide" id="bankPanel">
-      <div style="font-weight:800;margin-bottom:4px">Word bank <span style="color:var(--clay)">&bull;</span>
-        <span class="dim" style="font-weight:600"> = timing not verified yet (fix in Tune)</span></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+        <span style="font-weight:800">Word bank</span>
+        <select id="charFilter" style="background:var(--bog);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:8px 10px;font-size:15px;font-weight:700">
+          <option value="all">Everyone</option>
+          <option value="Shrek">Shrek</option>
+          <option value="Donkey">Donkey</option>
+        </select>
+        <span class="dim" style="font-weight:600"><span style="color:var(--clay)">&bull;</span> = timing not verified (fix in Tune)</span>
+      </div>
       <div id="chips"></div>
     </div>
     <div class="panel hide" id="wordPanel">
@@ -135,14 +142,14 @@
       <input type="text" id="wName" style="margin:10px 0">
       <div class="nudge" data-f="start">
         <span class="lbl">start</span><span class="val" id="startVal"></span>
-        <button data-d="-0.1">&minus;.1</button><button data-d="-0.02">&minus;.02</button>
-        <button data-d="0.02">+.02</button><button data-d="0.1">+.1</button>
+        <button data-d="-1">&minus;1</button><button data-d="-0.1">&minus;.1</button><button data-d="-0.02">&minus;.02</button>
+        <button data-d="0.02">+.02</button><button data-d="0.1">+.1</button><button data-d="1">+1</button>
         <button class="set" data-set="start">set</button>
       </div>
       <div class="nudge" data-f="end">
         <span class="lbl">end</span><span class="val" id="endVal"></span>
-        <button data-d="-0.1">&minus;.1</button><button data-d="-0.02">&minus;.02</button>
-        <button data-d="0.02">+.02</button><button data-d="0.1">+.1</button>
+        <button data-d="-1">&minus;1</button><button data-d="-0.1">&minus;.1</button><button data-d="-0.02">&minus;.02</button>
+        <button data-d="0.02">+.02</button><button data-d="0.1">+.1</button><button data-d="1">+1</button>
         <button class="set" data-set="end">set</button>
       </div>
       <div class="row">
@@ -337,8 +344,11 @@ function chipHtml(w){
 }
 function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function refreshChips(){
-  var html = sorted().map(chipHtml).join("");
-  $("chips").innerHTML = html; $("chips2").innerHTML = html;
+  var filter = $("charFilter") ? $("charFilter").value : "all";
+  var all = sorted();
+  var labList = filter === "all" ? all : all.filter(function(w){ return w.character === filter; });
+  $("chips").innerHTML = labList.map(chipHtml).join("") || '<span class="dim">No words for this character yet — add some in Tune.</span>';
+  $("chips2").innerHTML = all.map(chipHtml).join("");
   var f = function(e){
     var b = e.target.closest("[data-id]"); if (!b) return;
     selectedId = b.getAttribute("data-id");
@@ -347,6 +357,7 @@ function refreshChips(){
   };
   $("chips").onclick = f; $("chips2").onclick = f;
 }
+$("charFilter").addEventListener("change", refreshChips);
 function updWordPanel(){
   var w = sel(); if (!w) return;
   $("wTitle").textContent = "\u201C"+w.word+"\u201D";

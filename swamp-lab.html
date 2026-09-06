@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Swamp Phonetics Lab</title>
+<style>
+  :root{
+    --bog:#17251A; --panel:#223529; --panel2:#2C4433; --line:#3A5843;
+    --green:#7FB94A; --green2:#A6D96A; --gold:#E8C558; --clay:#C4573B;
+    --ink:#EFF5E9; --dim:#9DB894; --deep:#14210F;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bog);color:var(--ink);
+    font-family:system-ui,-apple-system,sans-serif;padding-bottom:96px}
+  .wrap{max-width:560px;margin:0 auto;padding:14px}
+  h1{font-size:26px;font-weight:900;letter-spacing:-.5px;margin:8px 2px 2px}
+  .sub{color:var(--dim);font-size:14px;margin:0 2px 12px}
+  .panel{background:var(--panel);border-radius:18px;padding:14px;margin-top:12px}
+  .btn{background:var(--green);color:var(--deep);border:none;border-radius:14px;
+    padding:12px 14px;font-size:15px;font-weight:800;cursor:pointer}
+  .btn.dark{background:var(--line);color:var(--ink)}
+  .btn.gold{background:var(--gold)}
+  .btn.clay{background:var(--clay);color:#FFF3E8}
+  .btn.danger{background:#5A2E22;color:#F5D9CE}
+  .btn:disabled{opacity:.45}
+  .btn.grow{flex:1}
+  .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .chip{background:var(--panel2);color:#DCE8D2;border:2px solid var(--line);
+    border-radius:999px;padding:10px 16px;margin:4px;font-size:16px;font-weight:700;cursor:pointer}
+  .chip.sel{background:var(--green);color:var(--deep);border-color:var(--green2)}
+  .chip.playing{background:var(--gold);color:var(--deep)}
+  .chip .dot{color:var(--clay);margin-left:5px}
+  .dim{color:var(--dim);font-size:13px;line-height:1.4}
+  .word-title{font-size:20px;font-weight:900}
+  .meta{font-size:13px;color:var(--dim);font-weight:600}
+  canvas{display:block;border-radius:8px;width:100%}
+  input[type=text]{width:100%;background:var(--bog);color:var(--ink);
+    border:2px solid var(--line);border-radius:10px;padding:10px;font-size:16px;font-weight:700}
+  .seg{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--panel2)}
+  .seg span{flex:1;font-variant-numeric:tabular-nums;font-size:14px}
+  .seg button{border:none;border-radius:9px;padding:7px 12px;font-weight:800;cursor:pointer}
+  .nudge{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+  .nudge .lbl{width:44px;font-weight:800;text-transform:capitalize}
+  .nudge .val{width:62px;font-variant-numeric:tabular-nums}
+  .nudge button{background:var(--line);color:var(--ink);border:none;border-radius:12px;
+    padding:10px 12px;font-weight:800;cursor:pointer}
+  .nudge button.set{background:var(--gold);color:var(--deep)}
+  nav{position:fixed;bottom:0;left:0;right:0;background:var(--deep);
+    border-top:2px solid var(--line);display:flex;justify-content:center;gap:6px;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+  nav button{flex:1;max-width:170px;background:transparent;color:var(--dim);border:none;
+    border-radius:12px;padding:12px;font-size:15px;font-weight:800;cursor:pointer}
+  nav button.on{background:var(--green);color:var(--deep)}
+  .hide{display:none !important}
+  .status{margin-top:10px;color:var(--gold);font-size:14px;line-height:1.4}
+  pre.diag{margin-top:8px;background:var(--deep);color:#DCE8D2;border-radius:10px;
+    padding:10px;font-size:12px;line-height:1.5;white-space:pre-wrap}
+  .drill h3{margin:0 0 4px;font-size:16px}
+  .drill p{margin:4px 0;font-size:14px;line-height:1.5}
+  .filebtn{display:inline-block;background:var(--green);color:var(--deep);font-weight:800;
+    border-radius:14px;padding:13px 22px;cursor:pointer;font-size:16px}
+  label.btn-like{background:var(--line);color:var(--ink);border-radius:14px;padding:12px 14px;
+    font-size:15px;font-weight:800;cursor:pointer;flex:1;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Swamp Phonetics Lab</h1>
+  <p class="sub">Hear the word. Say the word. Become the ogre.</p>
+
+  <div id="loader" class="panel" style="text-align:center;padding:26px 16px">
+    <div style="font-size:17px;font-weight:800;margin-bottom:6px">Load the scene audio</div>
+    <div class="dim" style="margin-bottom:14px">Pick <b style="color:#DCE8D2">onion-scene-audio.m4a</b>
+      (or the small mp4). It decodes into memory on this device — nothing is uploaded anywhere.</div>
+    <label class="filebtn" id="loadLabel">Choose file
+      <input type="file" id="sceneFile" style="display:none">
+    </label>
+    <div id="loadMsg" class="dim" style="margin-top:12px"></div>
+  </div>
+
+  <div id="deck" class="hide">
+    <canvas id="waveFull" height="108"></canvas>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+      <button class="btn" id="playAllBtn">&#9654; Play scene</button>
+      <span class="dim" id="clock" style="flex:1;text-align:right;font-variant-numeric:tabular-nums"></span>
+    </div>
+  </div>
+
+  <!-- LAB -->
+  <div id="tab-lab">
+    <div class="panel hide" id="bankPanel">
+      <div style="font-weight:800;margin-bottom:4px">Word bank <span style="color:var(--clay)">&bull;</span>
+        <span class="dim" style="font-weight:600"> = timing not verified yet (fix in Tune)</span></div>
+      <div id="chips"></div>
+    </div>
+    <div class="panel hide" id="wordPanel">
+      <div><span class="word-title" id="wTitle"></span> <span class="meta" id="wMeta"></span></div>
+      <div id="wListen" style="color:#DCE8D2;font-size:15px;margin:8px 0 12px;line-height:1.45"></div>
+      <div class="row">
+        <button class="btn grow" id="hearBtn">&#9654; Hear it</button>
+        <button class="btn clay grow" id="recBtn">&#9679; Record me</button>
+      </div>
+      <div class="row">
+        <button class="btn dark grow" id="mineBtn" disabled>&#9654; My take</button>
+        <button class="btn dark grow" id="abBtn" disabled>A/B: them &rarr; me</button>
+      </div>
+      <div class="row">
+        <label class="btn-like">Load my take (file)
+          <input type="file" id="takeFile" style="display:none">
+        </label>
+      </div>
+      <div id="recStatus" class="status hide"></div>
+      <div style="margin-top:10px">
+        <button id="diagBtn" style="background:var(--bog);color:var(--green2);border:1.5px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer">Run mic diagnostics</button>
+        <pre id="diagOut" class="diag hide"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TUNE -->
+  <div id="tab-tune" class="hide">
+    <div class="panel">
+      <div style="font-weight:800;margin-bottom:6px">Measured speech segments</div>
+      <div class="dim" style="margin-bottom:8px">36 chunks of real speech, detected from the audio.
+        &#9654; to hear one; + to turn it into a word marker, then rename and trim.</div>
+      <div id="segList" style="max-height:180px;overflow-y:auto"></div>
+    </div>
+    <div class="panel">
+      <div style="font-weight:800;margin-bottom:8px">Word tuner</div>
+      <div id="chips2"></div>
+      <canvas id="waveZoom" height="128" style="margin-top:8px"></canvas>
+      <input type="text" id="wName" style="margin:10px 0">
+      <div class="nudge" data-f="start">
+        <span class="lbl">start</span><span class="val" id="startVal"></span>
+        <button data-d="-0.1">&minus;.1</button><button data-d="-0.02">&minus;.02</button>
+        <button data-d="0.02">+.02</button><button data-d="0.1">+.1</button>
+        <button class="set" data-set="start">set</button>
+      </div>
+      <div class="nudge" data-f="end">
+        <span class="lbl">end</span><span class="val" id="endVal"></span>
+        <button data-d="-0.1">&minus;.1</button><button data-d="-0.02">&minus;.02</button>
+        <button data-d="0.02">+.02</button><button data-d="0.1">+.1</button>
+        <button class="set" data-set="end">set</button>
+      </div>
+      <div class="row">
+        <button class="btn" id="testBtn">&#9654; Test</button>
+        <button class="btn dark" id="verifyBtn">Mark verified</button>
+        <button class="btn dark" id="charBtn">&rarr; Donkey</button>
+        <button class="btn danger" id="delBtn">Delete</button>
+      </div>
+      <div class="row" style="align-items:center">
+        <button class="btn gold" id="saveBtn">Save all markers</button>
+        <span id="saveMsg" style="font-weight:700"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- DRILLS -->
+  <div id="tab-drills" class="hide">
+    <div class="panel drill">
+      <h3>1 — The Ogre R</h3>
+      <p>Scottish R is a tongue-tip tap [&#638;] — one flick against the ridge behind your teeth — or a
+      full trill [r] when angry. Every written R gets pronounced.</p>
+      <p><b>Say it:</b> "buh-t'r" with one flick &rarr; then full trill: "og-rrrres." If the tongue tip
+      isn't vibrating, it's not Shrek.</p>
+    </div>
+    <div class="panel drill">
+      <h3>2 — Oot and Aboot</h3>
+      <p>The "ow" glide flattens to one pure vowel: out &rarr; "oot" [ut], down &rarr; "doon", about &rarr; "aboot".</p>
+      <p><b>Say it:</b> "Get oot. Sit doon. Whit's that aboot?" One vowel per word — if your jaw moves
+      mid-vowel, you're gliding.</p>
+    </div>
+    <div class="panel drill">
+      <h3>3 — DON-keh</h3>
+      <p>Final -y drops from "ee" to "eh": happy &rarr; "happeh", donkey &rarr; "DON-keh".</p>
+      <p><b>Say it:</b> "Happeh. Citeh. Donkeh." Then the full summons: "DON-keh!" Commitment mandatory.</p>
+    </div>
+    <div class="panel drill">
+      <h3>4 — Pure vowels</h3>
+      <p>"No" and "face" are single long vowels [no&#720;], [fe&#720;s] — no glide at the end. Scottish
+      vowels slam the door.</p>
+      <p><b>Say it:</b> "No." Freeze your jaw the whole way through. Then "face", "hame", "stane".</p>
+    </div>
+    <div class="panel drill">
+      <h3>5 — Every R gets paid</h3>
+      <p>Unlike London English, Scottish never drops an R: father, water, ogre all end with an audible R.</p>
+      <p><b>Say it:</b> "Watterrr. Fatherrr. Forrr everrr." Tap every single one.</p>
+    </div>
+    <div class="panel dim">For a live coach, ask Claude in the Claude app — tell it what you heard in
+    your A/B and it'll drill you. This page keeps the ears-and-mouth part.</div>
+  </div>
+</div>
+
+<nav>
+  <button data-tab="lab" class="on">Lab</button>
+  <button data-tab="tune">Tune</button>
+  <button data-tab="drills">Drills</button>
+</nav>
+
+<script>
+"use strict";
+// ================= measured data (50ms RMS envelope of the onion scene) ====
+var ENV_STEP = 0.05;
+var ENV_LEVELS = "0000000024444484777364423332333453243378452775147634137543213355785324693138643374286237411977127543452426513222686531143854561798885496645665226234128956448731573235159633464336853764574213347643576411121122222598777386375248724456763564216742244446344313875424532121112534566657886338663444686222323149343711387387876897353428741565457677226977222334863379752265228751332211111115976452115888765431145742662115876664465767777678725323663147777778663111111117857874688652111111102688577777775105747326425787145177448752687777337776262262375468774366662127774111111111218872677877765311063757762788745430067776553214685432663113677776312331111111111112127655862348655265246787631111111111698655444332222111111111111212588544554686433344322111111111248567877565313556654355543655776246641551687744752255316751652166532133224555334367678638887511111121115448888734443210000000011398237887741688777775543100001111111111111111118887426777775221001888777578278755632122200111111235431111111111111166442876124465323327987311169775751317753200478887888876678876556566556664442327655644678732676553178521687567568764467655321112588877776765311001125788966665542222320000001117876667766643211112577777622111356776553223311699877558764111100001576245875413476466568737876754210001111122345953797563111114744973477525655322363111125555554432222321111111221211111311111111212215864666668766527724665468767875678778776666543322223225543222111112111112212221112212222111179887868842765544235543111110001111111111111111115887311100112111168756475355421364112210112663176376665676211678511125788776431000000000011111125973267547768754644204554431000011111112988547766443200000000267644687641221000222376311456765111344431111223454221222443222125433211223542211112232222111111111587786674366478775877300088831787653231101873675754566431664345532676666541116657646277751677563286776446765567545228852365410887158763433446632121379998877654433200026531011788742121577664145424437776237731377524941198762575211000000998637873588866751227974455421100004776476333997654311000688726977776420000000000000246454441455310000000000001111111111211111111111142211131112321111111112111111111121111111211211211111111111111111788611777646873575646775326556634522155534543432676522655543146532111466665431112111366512664661254217763376235666532111111";
+var SEGMENTS = [{id:'s1',start:0.4,end:10.0},{id:'s2',start:10.3,end:18.7},{id:'s3',start:19.05,end:22.55},{id:'s4',start:22.95,end:23.6},{id:'s5',start:24.0,end:27.95},{id:'s6',start:28.5,end:31.95},{id:'s7',start:32.65,end:33.9},{id:'s8',start:34.4,end:35.15},{id:'s9',start:35.85,end:36.95},{id:'s10',start:37.4,end:40.15},{id:'s11',start:40.6,end:42.1},{id:'s12',start:42.6,end:43.3},{id:'s13',start:43.85,end:45.05},{id:'s14',start:46.2,end:48.05},{id:'s15',start:48.65,end:48.9},{id:'s16',start:49.6,end:56.65},{id:'s17',start:56.95,end:57.9},{id:'s18',start:58.35,end:61.25},{id:'s19',start:61.7,end:63.25},{id:'s20',start:63.7,end:66.75},{id:'s21',start:68.25,end:71.3},{id:'s22',start:72.0,end:74.0},{id:'s23',start:75.3,end:75.55},{id:'s24',start:76.15,end:76.8},{id:'s25',start:77.4,end:79.2},{id:'s26',start:80.05,end:81.45},{id:'s27',start:82.05,end:82.75},{id:'s28',start:83.15,end:83.7},{id:'s29',start:84.05,end:87.65},{id:'s30',start:88.1,end:99.4},{id:'s31',start:99.8,end:103.35},{id:'s32',start:104.0,end:104.65},{id:'s33',start:106.45,end:106.6},{id:'s34',start:106.95,end:107.1},{id:'s35',start:109.7,end:113.55},{id:'s36',start:113.9,end:115.55}];
+var TOTAL = ENV_LEVELS.length * ENV_STEP;
+
+var SEED_WORDS = [
+  {id:"w1", word:"ogres",   character:"Shrek",  start:40.6, end:41.4, verified:false},
+  {id:"w2", word:"onions",  character:"Shrek",  start:41.4, end:42.1, verified:false},
+  {id:"w3", word:"layers",  character:"Shrek",  start:50.2, end:51.0, verified:false},
+  {id:"w4", word:"parfait", character:"Donkey", start:84.5, end:85.2, verified:false}
+];
+var LISTEN_FOR = {
+  ogres:"The R: one tongue-tip flick [\u027E] \u2014 or a full trill when he's angry. Does yours vibrate?",
+  onions:"Vowel check: does it start dark, like 'UN-yinz'? Hold the shape steady.",
+  layers:"Two targets: the pure 'ay' [e\u02D0] with no glide, then a full final R.",
+  parfait:"Donkey = American baseline. Hear the bunched R and gliding vowels \u2014 the sound you're moving AWAY from."
+};
+var DEFAULT_LISTEN = "Compare the R and the vowels to your own attempt. One pure vowel per syllable, every R audible.";
+
+// ================= state ====================================================
+var words = SEED_WORDS.slice();
+var selectedId = "w1";
+var playhead = 0, playingId = null;
+var ctx = null, sceneBuf = null, recBuf = null, curSrc = null, playInfo = null, raf = 0;
+var mediaRec = null, chunks = [];
+
+try {
+  var saved = localStorage.getItem("swampLabWords");
+  if (saved) { var arr = JSON.parse(saved); if (arr && arr.length) { words = arr; selectedId = arr[0].id; } }
+} catch(e){}
+
+function $(id){ return document.getElementById(id); }
+function sel(){ for (var i=0;i<words.length;i++) if (words[i].id===selectedId) return words[i]; return words[0]; }
+function sorted(){ return words.slice().sort(function(a,b){return a.start-b.start;}); }
+
+// ================= audio engine ============================================
+function ensureCtx(){
+  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if (ctx.state === "suspended") ctx.resume();
+  return ctx;
+}
+function decodeAudio(c, ab){
+  return new Promise(function(res, rej){
+    var p = c.decodeAudioData(ab, res, rej);
+    if (p && p.then) p.then(res).catch(rej);
+  });
+}
+function stopSource(){
+  if (curSrc){ try{ curSrc.onended=null; curSrc.stop(); }catch(e){} curSrc=null; }
+  playInfo = null; playingId = null;
+  cancelAnimationFrame(raf);
+  refreshChips(); drawAll(); updClock();
+}
+function tick(){
+  if (!playInfo || !ctx) return;
+  var t = playInfo.offset + (ctx.currentTime - playInfo.ctxStart);
+  playhead = Math.min(t, playInfo.end);
+  drawAll(); updClock();
+  if (t < playInfo.end) raf = requestAnimationFrame(tick);
+  else { playInfo=null; playingId=null; refreshChips(); }
+}
+function playBuffer(buffer, start, end, id){
+  var c = ensureCtx();
+  stopSource();
+  var src = c.createBufferSource();
+  src.buffer = buffer; src.connect(c.destination);
+  var dur = Math.max(0.05, end - start);
+  src.onended = function(){ if (curSrc===src){ curSrc=null; playInfo=null; playingId=null; refreshChips(); updPlayAll(); } };
+  src.start(0, start, dur);
+  curSrc = src;
+  playInfo = {offset:start, ctxStart:c.currentTime, end:end};
+  playingId = id || null;
+  refreshChips(); updPlayAll();
+  cancelAnimationFrame(raf); raf = requestAnimationFrame(tick);
+}
+function playClip(w){ if (sceneBuf) playBuffer(sceneBuf, w.start, w.end, w.id); }
+function seekTo(t){
+  var wasFull = playingId === "full";
+  stopSource();
+  playhead = Math.max(0, Math.min(TOTAL, t));
+  drawAll(); updClock();
+  if (wasFull && sceneBuf) playBuffer(sceneBuf, playhead, TOTAL, "full");
+}
+
+// ================= waveform ================================================
+function drawWave(cv, from, to, markers){
+  var W = cv.clientWidth || cv.parentElement.clientWidth; var H = cv.height/2;
+  if (cv.width !== W*2) cv.width = W*2;
+  var g = cv.getContext("2d");
+  g.setTransform(2,0,0,2,0,0);
+  g.clearRect(0,0,W,H);
+  var i0 = Math.max(0, Math.floor(from/ENV_STEP));
+  var i1 = Math.min(ENV_LEVELS.length, Math.ceil(to/ENV_STEP));
+  var n = i1-i0, bw = W/n;
+  for (var i=0;i<n;i++){
+    var lvl = +ENV_LEVELS[i0+i];
+    var h = Math.max(2, (lvl/9)*(H-6));
+    var t = (i0+i)*ENV_STEP, inM = false;
+    for (var m=0;m<markers.length;m++){ if (t>=markers[m].start && t<=markers[m].end){ inM=true; break; } }
+    g.fillStyle = inM ? "#E8C558" : (lvl>=2 ? "#7FB94A" : "#3A5843");
+    g.fillRect(i*bw, (H-h)/2, Math.max(1,bw-0.5), h);
+  }
+  if (playhead>=from && playhead<=to){
+    var x = ((playhead-from)/(to-from))*W;
+    g.fillStyle = "#EFF5E9"; g.fillRect(x-1,0,2,H);
+  }
+}
+function drawAll(){
+  drawWave($("waveFull"), 0, TOTAL, sorted());
+  var s = sel();
+  if (s) drawWave($("waveZoom"), Math.max(0,s.start-2), Math.min(TOTAL,s.end+2), [s]);
+}
+function waveSeek(cv, from, to){
+  cv.addEventListener("click", function(e){
+    var r = cv.getBoundingClientRect();
+    var f = typeof from === "function" ? from() : from;
+    var t = typeof to === "function" ? to() : to;
+    seekTo(f + ((e.clientX - r.left)/r.width)*(t-f));
+  });
+}
+
+// ================= UI wiring ================================================
+function updClock(){ $("clock").textContent = playhead.toFixed(2)+"s / "+TOTAL.toFixed(0)+"s \u2014 tap waveform to jump"; }
+function updPlayAll(){ $("playAllBtn").innerHTML = playingId==="full" ? "&#10074;&#10074; Pause" : "&#9654; Play scene"; }
+
+function chipHtml(w){
+  var cls = "chip" + (w.id===selectedId?" sel":"") + (w.id===playingId?" playing":"");
+  return '<button class="'+cls+'" data-id="'+w.id+'">'+escapeHtml(w.word)+(w.verified?"":'<span class="dot">&bull;</span>')+'</button>';
+}
+function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function refreshChips(){
+  var html = sorted().map(chipHtml).join("");
+  $("chips").innerHTML = html; $("chips2").innerHTML = html;
+  var f = function(e){
+    var b = e.target.closest("[data-id]"); if (!b) return;
+    selectedId = b.getAttribute("data-id");
+    refreshChips(); updWordPanel(); updTuner(); drawAll();
+    if (sceneBuf) playClip(sel());
+  };
+  $("chips").onclick = f; $("chips2").onclick = f;
+}
+function updWordPanel(){
+  var w = sel(); if (!w) return;
+  $("wTitle").textContent = "\u201C"+w.word+"\u201D";
+  $("wMeta").textContent = w.character+" \u00B7 "+w.start.toFixed(2)+"\u2013"+w.end.toFixed(2)+"s";
+  $("wListen").textContent = LISTEN_FOR[w.word.toLowerCase()] || DEFAULT_LISTEN;
+}
+function updTuner(){
+  var w = sel(); if (!w) return;
+  $("wName").value = w.word;
+  $("startVal").textContent = w.start.toFixed(2)+"s";
+  $("endVal").textContent = w.end.toFixed(2)+"s";
+  $("verifyBtn").textContent = w.verified ? "Verified \u2713" : "Mark verified";
+  $("verifyBtn").className = "btn " + (w.verified ? "" : "dark");
+  $("charBtn").textContent = w.character==="Shrek" ? "\u2192 Donkey" : "\u2192 Shrek";
+}
+function patchSel(patch, keepVerified){
+  var w = sel(); if (!w) return;
+  for (var k in patch) w[k] = patch[k];
+  if (!keepVerified) w.verified = false;
+  $("saveMsg").textContent = "";
+  refreshChips(); updWordPanel(); updTuner(); drawAll();
+}
+
+// segments list
+(function(){
+  var html = "";
+  for (var i=0;i<SEGMENTS.length;i++){
+    var s = SEGMENTS[i];
+    html += '<div class="seg"><span>'+s.start.toFixed(2)+' \u2013 '+s.end.toFixed(2)+'s</span>'+
+      '<button style="background:var(--line);color:var(--ink)" data-play="'+i+'">&#9654;</button>'+
+      '<button style="background:var(--green);color:var(--deep)" data-add="'+i+'">+</button></div>';
+  }
+  $("segList").innerHTML = html;
+  $("segList").onclick = function(e){
+    var p = e.target.getAttribute("data-play"), a = e.target.getAttribute("data-add");
+    if (p!==null && p!==undefined && sceneBuf){ var s=SEGMENTS[+p]; playBuffer(sceneBuf, s.start, s.end, null); }
+    if (a!==null && a!==undefined){
+      var sg = SEGMENTS[+a];
+      var id = "w"+Date.now();
+      words.push({id:id, word:"new word", character:"Shrek", start:sg.start, end:sg.end, verified:false});
+      selectedId = id; $("saveMsg").textContent = "";
+      refreshChips(); updWordPanel(); updTuner(); drawAll();
+    }
+  };
+})();
+
+// tuner controls
+document.querySelectorAll(".nudge").forEach(function(row){
+  var f = row.getAttribute("data-f");
+  row.addEventListener("click", function(e){
+    var d = e.target.getAttribute("data-d");
+    var st = e.target.getAttribute("data-set");
+    if (d){ var w=sel(); var v=Math.max(0, Math.round((w[f]+parseFloat(d))*100)/100); var p={}; p[f]=v; patchSel(p); }
+    if (st){ var p2={}; p2[f]=Math.round(playhead*100)/100; patchSel(p2); }
+  });
+});
+$("wName").addEventListener("input", function(){ patchSel({word:$("wName").value}); $("wName").focus(); });
+$("testBtn").onclick = function(){ if (sceneBuf) playClip(sel()); };
+$("verifyBtn").onclick = function(){ var w=sel(); patchSel({verified:!w.verified}, true); };
+$("charBtn").onclick = function(){ var w=sel(); patchSel({character: w.character==="Shrek"?"Donkey":"Shrek"}, true); };
+$("delBtn").onclick = function(){
+  words = words.filter(function(w){ return w.id!==selectedId; });
+  if (words.length) selectedId = words[0].id;
+  refreshChips(); updWordPanel(); updTuner(); drawAll();
+};
+$("saveBtn").onclick = function(){
+  try { localStorage.setItem("swampLabWords", JSON.stringify(words));
+    $("saveMsg").textContent = "Saved"; $("saveMsg").style.color = "#A6D96A"; }
+  catch(e){ $("saveMsg").textContent = "Save failed"; $("saveMsg").style.color = "#E8A0A0"; }
+};
+
+// scene load
+$("sceneFile").addEventListener("change", function(e){
+  var f = e.target.files && e.target.files[0]; if (!f) return;
+  $("loadMsg").textContent = "Decoding "+f.name+"\u2026";
+  var c = ensureCtx();
+  f.arrayBuffer().then(function(ab){ return decodeAudio(c, ab); }).then(function(buf){
+    sceneBuf = buf;
+    $("loader").classList.add("hide");
+    $("deck").classList.remove("hide");
+    $("bankPanel").classList.remove("hide");
+    $("wordPanel").classList.remove("hide");
+    drawAll(); updClock();
+  }).catch(function(err){
+    $("loadMsg").textContent = "Couldn't decode that file ("+err+"). Try onion-scene-audio.m4a.";
+    $("loadMsg").style.color = "#E8A0A0";
+  });
+});
+
+// transport
+$("playAllBtn").onclick = function(){
+  if (playingId==="full") stopSource();
+  else if (sceneBuf) playBuffer(sceneBuf, Math.min(playhead, TOTAL-0.1), TOTAL, "full");
+  updPlayAll();
+};
+waveSeek($("waveFull"), 0, TOTAL);
+waveSeek($("waveZoom"), function(){ var s=sel(); return Math.max(0,s.start-2); },
+                        function(){ var s=sel(); return Math.min(TOTAL,s.end+2); });
+
+// lab buttons
+$("hearBtn").onclick = function(){ if (sceneBuf) playClip(sel()); };
+$("mineBtn").onclick = function(){ if (recBuf) playBuffer(recBuf, 0, recBuf.duration, "mine"); };
+$("abBtn").onclick = function(){
+  if (!sceneBuf || !recBuf) return;
+  var c = ensureCtx(); stopSource();
+  var w = sel(); var clipDur = w.end - w.start;
+  var s1 = c.createBufferSource(); s1.buffer = sceneBuf; s1.connect(c.destination);
+  s1.start(0, w.start, clipDur);
+  var s2 = c.createBufferSource(); s2.buffer = recBuf; s2.connect(c.destination);
+  s2.start(c.currentTime + clipDur + 0.4);
+  curSrc = s2;
+  playInfo = {offset:w.start, ctxStart:c.currentTime, end:w.end};
+  playingId = w.id; refreshChips();
+  cancelAnimationFrame(raf); raf = requestAnimationFrame(tick);
+};
+function takeReady(){
+  $("mineBtn").disabled = false; $("abBtn").disabled = false;
+  $("recStatus").classList.add("hide");
+}
+$("takeFile").addEventListener("change", function(e){
+  var f = e.target.files && e.target.files[0]; if (!f) return;
+  f.arrayBuffer().then(function(ab){ return decodeAudio(ensureCtx(), ab); })
+    .then(function(b){ recBuf = b; takeReady(); })
+    .catch(function(){ showRecStatus("Couldn't decode that take \u2014 try an m4a from Voice Memos."); });
+});
+function showRecStatus(msg){
+  $("recStatus").textContent = msg;
+  $("recStatus").classList.remove("hide");
+}
+
+// recorder
+$("recBtn").onclick = function(){
+  if (mediaRec && mediaRec.state === "recording"){ mediaRec.stop(); return; }
+  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+    mediaRec = new MediaRecorder(stream);
+    chunks = [];
+    mediaRec.ondataavailable = function(e){ chunks.push(e.data); };
+    mediaRec.onstop = function(){
+      stream.getTracks().forEach(function(t){ t.stop(); });
+      $("recBtn").innerHTML = "&#9679; Record me"; $("recBtn").className = "btn clay grow";
+      var blob = new Blob(chunks, {type: mediaRec.mimeType || "audio/mp4"});
+      blob.arrayBuffer().then(function(ab){ return decodeAudio(ensureCtx(), ab); })
+        .then(function(b){ recBuf = b; takeReady(); })
+        .catch(function(err){ showRecStatus("Recorded, but decode failed: "+err); });
+    };
+    mediaRec.start();
+    $("recBtn").innerHTML = "&#9632; Stop"; $("recBtn").className = "btn gold grow";
+  }).catch(function(err){
+    showRecStatus("Mic request failed: "+err.name+". If Safari never asked, check Settings \u2192 Safari \u2192 Microphone, or use 'Load my take' with a Voice Memo.");
+  });
+};
+
+// diagnostics
+$("diagBtn").onclick = function(){
+  var lines = [];
+  lines.push("secure context: " + (window.isSecureContext ? "yes" : "NO"));
+  lines.push("mediaDevices API: " + (navigator.mediaDevices ? "present" : "MISSING"));
+  lines.push("MediaRecorder: " + (window.MediaRecorder ? "present" : "MISSING"));
+  var done = function(){ $("diagOut").textContent = lines.join("\n"); $("diagOut").classList.remove("hide"); };
+  var tryMic = function(){
+    navigator.mediaDevices.getUserMedia({audio:true}).then(function(st){
+      lines.push("getUserMedia: SUCCESS \u2014 " + st.getAudioTracks().length + " track(s)");
+      st.getTracks().forEach(function(t){ t.stop(); });
+      done();
+    }).catch(function(e){ lines.push("getUserMedia FAILED: "+e.name+" \u2014 "+e.message); done(); });
+  };
+  if (navigator.permissions && navigator.permissions.query){
+    navigator.permissions.query({name:"microphone"}).then(function(p){
+      lines.push("permission state: "+p.state); tryMic();
+    }).catch(function(){ lines.push("permission state: (query unsupported)"); tryMic(); });
+  } else { lines.push("permission state: (query unsupported)"); tryMic(); }
+};
+
+// tabs
+document.querySelector("nav").addEventListener("click", function(e){
+  var t = e.target.getAttribute("data-tab"); if (!t) return;
+  document.querySelectorAll("nav button").forEach(function(b){ b.className = b.getAttribute("data-tab")===t ? "on" : ""; });
+  ["lab","tune","drills"].forEach(function(k){
+    $("tab-"+k).classList.toggle("hide", k!==t);
+  });
+  drawAll();
+});
+
+// boot
+refreshChips(); updWordPanel(); updTuner(); updClock(); updPlayAll();
+window.addEventListener("resize", drawAll);
+</script>
+</body>
+</html>

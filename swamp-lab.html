@@ -153,8 +153,11 @@
       </div>
       <div class="row" style="align-items:center">
         <button class="btn gold" id="saveBtn">Save all markers</button>
+        <button class="btn dark" id="exportBtn">Export markers</button>
         <span id="saveMsg" style="font-weight:700"></span>
       </div>
+      <textarea id="exportOut" class="hide" readonly
+        style="width:100%;margin-top:10px;background:var(--deep);color:#DCE8D2;border:2px solid var(--line);border-radius:10px;padding:10px;font-size:12px;line-height:1.5;min-height:120px"></textarea>
     </div>
   </div>
 
@@ -408,6 +411,21 @@ $("delBtn").onclick = function(){
   words = words.filter(function(w){ return w.id!==selectedId; });
   if (words.length) selectedId = words[0].id;
   refreshChips(); updWordPanel(); updTuner(); drawAll();
+};
+$("exportBtn").onclick = function(){
+  var out = JSON.stringify(sorted(), null, 2);
+  var ta = $("exportOut");
+  ta.value = out; ta.classList.remove("hide");
+  ta.focus(); ta.select();
+  var copied = false;
+  try { copied = document.execCommand("copy"); } catch(e){}
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(out).then(function(){ $("saveMsg").textContent = "Copied to clipboard"; $("saveMsg").style.color = "#A6D96A"; });
+  } else if (copied){
+    $("saveMsg").textContent = "Copied to clipboard"; $("saveMsg").style.color = "#A6D96A";
+  } else {
+    $("saveMsg").textContent = "Long-press the box to copy"; $("saveMsg").style.color = "#E8C558";
+  }
 };
 $("saveBtn").onclick = function(){
   try { localStorage.setItem("swampLabWords", JSON.stringify(words));

@@ -311,21 +311,21 @@ function analyzeBuffer(buf){
 var SEEDS = {
   onion: [
     {id:"w1788730794335", word:"Ok let me get this straight", character:"Donkey", start:0.4, end:9.38, verified:true},
-    {id:"w1788734493359", word:"Ye know whit?", character:"Shrek", start:9.4, end:13.7, verified:true},
+    {id:"w1788734493359", word:"Ye know whit?", character:"Shrek", start:9.4, end:13.7, verified:true, line:"You know what?  Maybe there’s a good reason donkeys shouldn’t talk", phon:"Ye noh what?  MEH-beh therrz a guid RREE-zun DON-kehs SHUID-n’t tawk"},
     {id:"w1788732462930", word:"I don’t get it", character:"Donkey", start:13.7, end:21.92, verified:true},
-    {id:"w1788733959146", word:"You know whit", character:"Shrek", start:22.35, end:34.39, verified:true},
+    {id:"w1788733959146", word:"You know whit", character:"Shrek", start:22.35, end:34.39, verified:true, line:"Oh, I know what. Maybe I could’ve decapitated an entire village, put their heads on a pike, gotten a knife, and cut open their spleen and drink their fluids. Does that sound good to you?", phon:"Oh, Ah noh what. MEH-beh Ah cuid’ve de-CAP-ih-teh-ted an en-TUH-yer VIL-idge, puit therr heads on a puh-eyk, GOT-en a nuh-eef, an' cut OH-pen therr spleen an' drrink therr FLOO-ids. Duz that soond guid tae ye?"},
     {id:"w1788801833509", word:"Not really no", character:"Donkey", start:34.4, end:37.31, verified:true},
-    {id:"w1788801834875", word:"For your information", character:"Shrek", start:37.2, end:41.15, verified:true},
+    {id:"w1788801834875", word:"For your information", character:"Shrek", start:37.2, end:41.15, verified:true, line:"For your information, there’s a lot more to ogres than people think", phon:"Forr yer in-furr-MEH-shun, therrz a lot morr tae OH-grrez than PEE-pul think"},
     {id:"w1788801836460", word:"Example", character:"Donkey", start:41.2, end:42.15, verified:true},
-    {id:"w1788802055565", word:"Example ok", character:"Shrek", start:42.2, end:48.65, verified:true},
+    {id:"w1788802055565", word:"Example ok", character:"Shrek", start:42.2, end:48.65, verified:true, line:"Example? OK, um… Ogres are like onions.", phon:"Ex-AM-ple? OK, ehm… OH-grrez arre luh-eyk UN-yinz."},
     {id:"w1788802147141", word:"They stink?", character:"Donkey", start:48.6, end:50.25, verified:true},
     {id:"w1788802235168", word:"Oh They make you cry?", character:"Donkey", start:50.2, end:52.3, verified:false},
     {id:"w1788802337538", word:"You leave them out in the sun", character:"Donkey", start:52.6, end:56.0, verified:false},
-    {id:"w1788802412350", word:"Layers", character:"Shrek", start:56.6, end:68.15, verified:true},
+    {id:"w1788802412350", word:"Layers", character:"Shrek", start:56.6, end:68.15, verified:true, line:"No!  Layers! Onions have layers. Ogres have layers. Onions have layers. You get it? We both have layers.", phon:"Noh!  LEH-urrz! UN-yinz hav LEH-urrz. OH-grrez hav LEH-urrz. UN-yinz hav LEH-urrz. Ye get it? We boath hav LEH-urrz."},
     {id:"w1788802559489", word:"Oh you both have layers", character:"Donkey", start:68.15, end:78.35, verified:true},
-    {id:"w1788802895839", word:"I don’t care", character:"Shrek", start:78.25, end:88.1, verified:true},
+    {id:"w1788802895839", word:"I don’t care", character:"Shrek", start:78.25, end:88.1, verified:true, line:"I don’t care what everyone likes! Ogres are not like cakes.", phon:"Ah doan’t cerr what EV-ry-wan luh-eyks! OH-grrez arre not luh-eyk cehks."},
     {id:"w1788803024635", word:"You know", character:"Donkey", start:88.15, end:95.4, verified:true},
-    {id:"w1788803088410", word:"No! you dense irritating", character:"Shrek", start:95.8, end:105.35, verified:true},
+    {id:"w1788803088410", word:"No! you dense irritating", character:"Shrek", start:95.8, end:105.35, verified:true, line:"No! You dense, irritating, miniature beast of burden, ogres are like onions! End of story! Bye-bye! See you later.", phon:"Noh! Ye dense, irr-ih-teh-tin', MIN-ya-churr beast o' BURR-den, OH-grrez arre luh-eyk UN-yinz! End o' STOR-eh! Buh-eye buh-eye! See ye LEH-turr."},
     {id:"w1788803159490", word:"Parfait may be", character:"Donkey", start:105.05, end:113.15, verified:false},
     {id:"w1788803307063", word:"You know I think", character:"Shrek", start:113.15, end:116.0, verified:true}
   ]
@@ -531,6 +531,7 @@ $("wPhonEdit").addEventListener("input", function(){ var w=sel(); if (w){ w.phon
 // rule-engine converter: dictionary lookups + generic Myers rules
 function shrekify(text){
   if (!text) return "";
+  text = text.replace(/[\u2018\u2019]/g, "'");
   var dict = {};
   if (window.STUDY && STUDY.WORDS) STUDY.WORDS.forEach(function(w){ if (w.say && w.say !== w.w) dict[w.w] = w.say; });
   // contractions / extras beyond the study list

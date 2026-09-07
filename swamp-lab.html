@@ -556,12 +556,14 @@ function shrekify(text){
     "i'd":"Ah'd","hero":"HEE-rroh","heroes":"HEE-rrohz","sword":"sorrd","swords":"sorrdz",
     "armor":"ARR-murr","armour":"ARR-murr","look":"luik","looks":"luiks","looking":"luik-in'",
     "looked":"luik'd","book":"buik","took":"tuik",
-    "dare":"derr","dares":"derrz","dared":"derr'd","daring":"DERR-in'"};
+    "dare":"derr","dares":"derrz","dared":"derr'd","daring":"DERR-in'","bye":"buh-eye"};
   // words whose final -y is the uh-ee vowel, never the -eh ending
   var priceY = {"my":1,"by":1,"why":1,"fly":1,"cry":1,"dry":1,"try":1,"sky":1,"shy":1,"sly":1,"spy":1,
     "fry":1,"ply":1,"pry":1,"thy":1,"buy":1,"guy":1,"apply":1,"reply":1,"rely":1,"deny":1,"defy":1,
     "supply":1,"imply":1,"comply":1,"july":1,"goodbye":1,"awry":1,"nearby":1,"butterfly":1};
   var eyKeep = {"they":1,"hey":1};
+  // words awaiting an ear ruling against the recording - flagged, never silent
+  var earPending = {"semi":"semi(?)"};
   function applyRules(low){
     var s = low, changed = false;
     // 1. -ing drops its g
@@ -581,13 +583,15 @@ function shrekify(text){
     else if (/[bcdfghjklmnpqrstuvwz]are(s|d)?$/.test(s) && s.length >= 4){ s = s.replace(/are(s|d)?$/,"err$1"); changed = true; }
     return changed ? s : null;
   }
-  return text.split(/(\s+)/).map(function(tok){
+  return text.split(/(\s+|-)/).map(function(tok){
+    if (tok === "-") return tok;
     if (/^\s+$/.test(tok) || !tok) return tok;
     var m = tok.match(/^([^A-Za-z']*)([A-Za-z']+)([^A-Za-z']*)$/);
     if (!m) return tok;
     var pre=m[1], core=m[2], post=m[3], low=core.toLowerCase(), rep=null;
     if (dict[low] !== undefined) rep = dict[low];
     else if (extra[low] !== undefined) rep = extra[low];
+    else if (earPending[low] !== undefined) rep = earPending[low];
     else { var r = applyRules(low); rep = (r !== null) ? r : core; }
     if (rep !== core && core[0] === core[0].toUpperCase() && rep[0] === rep[0].toLowerCase()){
       rep = rep[0].toUpperCase()+rep.slice(1);

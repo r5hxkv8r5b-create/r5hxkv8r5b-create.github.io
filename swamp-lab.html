@@ -556,7 +556,10 @@ function shrekify(text){
     "i'd":"Ah'd","hero":"HEE-rroh","heroes":"HEE-rrohz","sword":"sorrd","swords":"sorrdz",
     "armor":"ARR-murr","armour":"ARR-murr","look":"luik","looks":"luiks","looking":"luik-in'",
     "looked":"luik'd","book":"buik","took":"tuik",
-    "dare":"derr","dares":"derrz","dared":"derr'd","daring":"DERR-in'","bye":"buh-eye"};
+    "dare":"derr","dares":"derrz","dared":"derr'd","daring":"DERR-in'","bye":"buh-eye",
+    "world":"wurrld","worlds":"wurrldz","storm":"storrm","storms":"storrmz","farthest":"FARR-thest",
+    "sail":"sehl","sailing":"sehl-in'","sailed":"sehl'd","away":"a-WEH","taste":"tehst",
+    "tastes":"tehsts","tasted":"tehst-ed","said":"said"};
   // words whose final -y is the uh-ee vowel, never the -eh ending
   var priceY = {"my":1,"by":1,"why":1,"fly":1,"cry":1,"dry":1,"try":1,"sky":1,"shy":1,"sly":1,"spy":1,
     "fry":1,"ply":1,"pry":1,"thy":1,"buy":1,"guy":1,"apply":1,"reply":1,"rely":1,"deny":1,"defy":1,
@@ -578,6 +581,10 @@ function shrekify(text){
     if (/[a-z]er(s?)$/.test(s) && s.length >= 4){ s = s.replace(/er(s?)$/,"urr$1"); changed = true; }
     // 6. final -or takes it too (armor, doctor, mirror) - but not door/floor/poor
     if (/[^o]or(s?)$/.test(s) && s.length >= 5){ s = s.replace(/or(s?)$/,"urr$1"); changed = true; }
+    // 7a. FACE stays frozen: final -ay lowers to -eh (day, say, way, play, stay)
+    if (/[a-z]ay(s?)$/.test(s) && s.length >= 3){ s = s.replace(/ay(s?)$/,"eh$1"); changed = true; }
+    // 7b. FACE spelled ai before l/n/t (sail, rain, wait) - "said" is curated as an exception
+    if (/ai[lnt]/.test(s)){ s = s.replace(/ai([lnt])/g,"eh$1"); changed = true; }
     // 7. the care->cerr vowel: -are family (share, scare, spare, square, prepare...)
     if (/arin'$/.test(s)){ s = s.replace(/arin'$/,"errin'"); changed = true; }
     else if (/[bcdfghjklmnpqrstuvwz]are(s|d)?$/.test(s) && s.length >= 4){ s = s.replace(/are(s|d)?$/,"err$1"); changed = true; }

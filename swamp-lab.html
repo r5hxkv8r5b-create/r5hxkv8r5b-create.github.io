@@ -159,8 +159,14 @@
       <input type="text" id="wName" style="margin:10px 0">
       <div class="dim" style="margin-bottom:4px">Full line (type it from the scene) &mdash; and its phonetic version:</div>
       <textarea id="wLineEdit" rows="2" style="width:100%;box-sizing:border-box;background:var(--bog);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:10px;font-size:15px;margin-bottom:6px"></textarea>
-      <div class="row" style="margin:0 0 6px">
+      <div class="row" style="margin:0 0 6px;align-items:center">
         <button class="btn dark" id="autoPhonBtn">Auto-phoneticize &darr;</button>
+        <select id="phonMode" style="background:var(--bog);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:10px;font-size:14px;font-weight:700">
+          <option value="myers">Myers (canon)</option>
+          <option value="glasgow">Glesga (broad)</option>
+          <option value="doric">Doric (Aiberdeen)</option>
+          <option value="shetland">Shetland (Norse)</option>
+        </select>
       </div>
       <textarea id="wPhonEdit" rows="2" style="width:100%;box-sizing:border-box;background:var(--deep);color:var(--gold);border:2px solid var(--gold);border-radius:10px;padding:10px;font-size:15px;font-weight:700;margin-bottom:8px"></textarea>
       <div class="nudge" data-f="start">
@@ -543,6 +549,9 @@ $("wLineEdit").addEventListener("input", function(){ var w=sel(); if (w){ w.line
 $("wPhonEdit").addEventListener("input", function(){ var w=sel(); if (w){ w.phon=$("wPhonEdit").value; $("saveMsg").textContent=""; updWordPanel(); } });
 
 // rule-engine converter: dictionary lookups + generic Myers rules
+var ING_KEEP = {"thing":1,"things":1,"king":1,"kings":1,"ring":1,"rings":1,"sing":1,"sings":1,
+  "bring":1,"brings":1,"spring":1,"string":1,"strings":1,"wing":1,"wings":1,"sting":1,"swing":1,
+  "cling":1,"fling":1,"sling":1};
 function shrekify(text){
   if (!text) return "";
   text = text.replace(/[\u2018\u2019]/g, "'");
@@ -588,7 +597,7 @@ function shrekify(text){
   function applyRules(low){
     var s = low, changed = false;
     // 1. -ing drops its g
-    if (/ing$/.test(s) && s.length > 4){ s = s.slice(0,-3)+"in'"; changed = true; }
+    if (/ing$/.test(s) && s.length > 4 && !ING_KEEP[s]){ s = s.slice(0,-3)+"in'"; changed = true; }
     // 2. final -ey lowers to -eh (journey, money, valley) - not they/hey; runs BEFORE igh
     if (/ey(s?)$/.test(s) && s.length >= 4 && !eyKeep[low]){ s = s.replace(/ey(s?)$/,"eh$1"); changed = true; }
     // 3. final consonant+y lowers to -eh (story-family) - unless it's a PRICE -y word
@@ -626,10 +635,72 @@ function shrekify(text){
     return pre+rep+post;
   }).join("");
 }
+// ---- broad dialect modes (playful extremes - NOT ear-verified Myers canon) ----
+var DIALECT_MODES = {
+  glasgow: {
+    map: {"what":"whit","not":"no'","to":"tae","you":"ye","your":"yer","going":"gaun","gonna":"gonnae",
+      "can't":"cannae","don't":"dinnae","won't":"willnae","didn't":"didnae","wouldn't":"widnae",
+      "couldn't":"couldnae","shouldn't":"shouldnae","isn't":"isnae","wasn't":"wisnae","was":"wis",
+      "of":"o'","all":"aw","ball":"baw","football":"fitba","one":"wan","two":"twa","head":"heid",
+      "dead":"deid","house":"hoose","out":"oot","down":"doon","about":"aboot","know":"ken","yes":"aye",
+      "no":"naw","give":"gie","my":"ma","i":"ah","i'm":"ah'm","just":"jist","now":"noo","old":"auld",
+      "do":"dae","have":"huv","from":"fae","small":"wee","little":"wee"},
+    rules: function(s){
+      if (/ing$/.test(s) && s.length > 4 && !ING_KEEP[s]) s = s.slice(0,-3)+"in'";
+      s = s.replace(/([aeiou])t([aeiou])/g, "$1'$2");     // bu'er, wa'er
+      s = s.replace(/([aeiou])t$/, "$1'");                 // go', tha', whi'
+      return s;
+    }
+  },
+  doric: {
+    map: {"what":"fit","when":"fan","where":"far","who":"fa","who's":"fa's","whose":"fa's",
+      "good":"gweed","moon":"meen","school":"skweel","above":"abeen","do":"dee","don't":"dinna",
+      "can't":"canna","won't":"winna","not":"nae","one":"een","once":"eence","boy":"loon","boys":"loons",
+      "girl":"quine","girls":"quines","child":"bairn","children":"bairns","know":"ken","home":"hame",
+      "going":"gyaun","go":"gang","very":"affa","old":"auld","wrong":"vrang","i":"a","my":"ma",
+      "you":"ye","your":"yer","yes":"aye","was":"wis","out":"oot","down":"doon","about":"aboot",
+      "house":"hoose","now":"noo","to":"tae","of":"o'","have":"hae"},
+    rules: function(s){
+      if (/ing$/.test(s) && s.length > 4 && !ING_KEEP[s]) s = s.slice(0,-3)+"in'";
+      if (/^wh/.test(s)) s = "f"+s.slice(2);               // whatever -> fitever territory
+      return s;
+    }
+  },
+  shetland: {
+    map: {"the":"da","that":"dat","this":"dis","these":"dese","those":"dose","there":"dere",
+      "there's":"dere's","they":"dey","them":"dem","then":"den","you":"du","your":"dy","yours":"dine",
+      "small":"peerie","little":"peerie","know":"ken","old":"aald","home":"hame","from":"fae",
+      "don't":"dinna","can't":"canna","not":"na","yes":"aye","child":"bairn","children":"bairns",
+      "now":"noo","house":"hoose","out":"oot","about":"aboot","i":"I","my":"my","was":"wis","to":"ta"},
+    rules: function(s){
+      if (/ing$/.test(s) && s.length > 4 && !ING_KEEP[s]) s = s.slice(0,-3)+"in'";
+      if (/^th/.test(s)) s = "t"+s.slice(2);               // think->tink, three->tree, thing->ting
+      return s;
+    }
+  }
+};
+function dialectify(text, mode){
+  var M = DIALECT_MODES[mode];
+  if (!M) return shrekify(text);
+  text = text.replace(/[‘’]/g, "'");
+  return text.split(/(\s+|-)/).map(function(tok){
+    if (tok === "-" || /^\s+$/.test(tok) || !tok) return tok;
+    var m = tok.match(/^([^A-Za-z']*)([A-Za-z']+)([^A-Za-z']*)$/);
+    if (!m) return tok;
+    var pre=m[1], core=m[2], post=m[3], low=core.toLowerCase(), rep;
+    if (M.map[low] !== undefined) rep = M.map[low];
+    else { var r = M.rules(low); rep = (r !== low) ? r : core; }
+    if (rep !== core && core[0] === core[0].toUpperCase() && rep[0] === rep[0].toLowerCase()){
+      rep = rep[0].toUpperCase()+rep.slice(1);
+    }
+    return pre+rep+post;
+  }).join("");
+}
 $("autoPhonBtn").onclick = function(){
   var w = sel(); if (!w) return;
   var src = $("wLineEdit").value || w.line || "";
-  var out = shrekify(src);
+  var mode = $("phonMode") ? $("phonMode").value : "myers";
+  var out = mode === "myers" ? shrekify(src) : dialectify(src, mode);
   $("wPhonEdit").value = out;
   w.phon = out; $("saveMsg").textContent=""; updWordPanel();
 };

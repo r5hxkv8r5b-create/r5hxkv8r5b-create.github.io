@@ -157,6 +157,12 @@
       <div id="chips2"></div>
       <canvas id="waveZoom" height="128" style="margin-top:8px"></canvas>
       <input type="text" id="wName" style="margin:10px 0">
+      <div class="dim" style="margin-bottom:4px">Full line (type it from the scene) &mdash; and its phonetic version:</div>
+      <textarea id="wLineEdit" rows="2" style="width:100%;box-sizing:border-box;background:var(--bog);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:10px;font-size:15px;margin-bottom:6px"></textarea>
+      <div class="row" style="margin:0 0 6px">
+        <button class="btn dark" id="autoPhonBtn">Auto-phoneticize &darr;</button>
+      </div>
+      <textarea id="wPhonEdit" rows="2" style="width:100%;box-sizing:border-box;background:var(--deep);color:var(--gold);border:2px solid var(--gold);border-radius:10px;padding:10px;font-size:15px;font-weight:700;margin-bottom:8px"></textarea>
       <div class="nudge" data-f="start">
         <span class="lbl">start</span><span class="val" id="startVal"></span>
         <button data-d="-1">&minus;1</button><button data-d="-0.1">&minus;.1</button><button data-d="-0.02">&minus;.02</button>

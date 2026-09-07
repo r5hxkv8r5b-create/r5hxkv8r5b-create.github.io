@@ -80,6 +80,9 @@
       <input type="file" id="sceneFile" style="display:none">
     </label>
     <div id="loadMsg" class="dim" style="margin-top:12px"></div>
+    <div style="margin-top:16px;border-top:1.5px solid var(--line);padding-top:12px">
+      <button class="btn dark" id="forceRefresh">&#8635; Force refresh (get newest version)</button>
+    </div>
   </div>
 
   <div id="deck" class="hide">
@@ -106,6 +109,8 @@
     </div>
     <div class="panel hide" id="wordPanel">
       <div><span class="word-title" id="wTitle"></span> <span class="meta" id="wMeta"></span></div>
+      <div id="wLine" class="hide" style="color:#DCE8D2;font-size:15px;margin:8px 0 2px;line-height:1.45"></div>
+      <div id="wPhon" class="hide" style="background:var(--deep);border:1.5px solid var(--gold);border-radius:12px;padding:10px;color:var(--gold);font-size:16px;font-weight:800;line-height:1.5;margin:6px 0 10px"></div>
       <div id="wListen" style="color:#DCE8D2;font-size:15px;margin:8px 0 12px;line-height:1.45"></div>
       <div class="row">
         <button class="btn grow" id="hearBtn">&#9654; Hear it</button>
@@ -311,7 +316,12 @@ var SEEDS = {
     {id:"w1788802235168", word:"Oh They make you cry?", character:"Donkey", start:50.2, end:52.3, verified:false},
     {id:"w1788802337538", word:"You leave them out in the sun", character:"Donkey", start:52.6, end:56.0, verified:false},
     {id:"w1788802412350", word:"Layers", character:"Shrek", start:56.6, end:68.15, verified:true},
-    {id:"w1788802559489", word:"Oh you both have layers", character:"Donkey", start:68.15, end:78.35, verified:true}
+    {id:"w1788802559489", word:"Oh you both have layers", character:"Donkey", start:68.15, end:78.35, verified:true},
+    {id:"w1788802895839", word:"I don’t care", character:"Shrek", start:78.25, end:88.1, verified:true},
+    {id:"w1788803024635", word:"You know", character:"Donkey", start:88.15, end:95.4, verified:true},
+    {id:"w1788803088410", word:"No! you dense irritating", character:"Shrek", start:95.8, end:105.35, verified:true},
+    {id:"w1788803159490", word:"Parfait may be", character:"Donkey", start:105.05, end:113.15, verified:false},
+    {id:"w1788803307063", word:"You know I think", character:"Shrek", start:113.15, end:116.0, verified:true}
   ]
 };
 var LISTEN_FOR = {
@@ -448,11 +458,17 @@ function updWordPanel(){
   var w = sel(); if (!w) return;
   $("wTitle").textContent = "\u201C"+w.word+"\u201D";
   $("wMeta").textContent = w.character+" \u00B7 "+w.start.toFixed(2)+"\u2013"+w.end.toFixed(2)+"s";
+  if (w.line){ $("wLine").textContent = w.line; $("wLine").classList.remove("hide"); }
+  else $("wLine").classList.add("hide");
+  if (w.phon){ $("wPhon").textContent = w.phon; $("wPhon").classList.remove("hide"); }
+  else $("wPhon").classList.add("hide");
   $("wListen").textContent = LISTEN_FOR[w.word.toLowerCase()] || DEFAULT_LISTEN;
 }
 function updTuner(){
   var w = sel(); if (!w) return;
   $("wName").value = w.word;
+  $("wLineEdit").value = w.line || "";
+  $("wPhonEdit").value = w.phon || "";
   $("startVal").textContent = w.start.toFixed(2)+"s";
   $("endVal").textContent = w.end.toFixed(2)+"s";
   $("verifyBtn").textContent = w.verified ? "Verified \u2713" : "Mark verified";
@@ -503,6 +519,38 @@ document.querySelectorAll(".nudge").forEach(function(row){
   });
 });
 $("wName").addEventListener("input", function(){ patchSel({word:$("wName").value}); $("wName").focus(); });
+$("wLineEdit").addEventListener("input", function(){ var w=sel(); if (w){ w.line=$("wLineEdit").value; $("saveMsg").textContent=""; updWordPanel(); } });
+$("wPhonEdit").addEventListener("input", function(){ var w=sel(); if (w){ w.phon=$("wPhonEdit").value; $("saveMsg").textContent=""; updWordPanel(); } });
+
+// rule-engine converter: dictionary lookups + generic Myers rules
+function shrekify(text){
+  if (!text) return "";
+  var dict = {};
+  if (window.STUDY && STUDY.WORDS) STUDY.WORDS.forEach(function(w){ if (w.say && w.say !== w.w) dict[w.w] = w.say; });
+  // contractions / extras beyond the study list
+  var extra = {"i'm":"Ah'm","i'll":"Ah'll","i've":"Ah've","you're":"ye're","you'll":"ye'll","my":"ma","me":"me","them":"them","was":"wiz","out":"oot","about":"aboot","down":"doon","going":"goin'","really":"REEL-eh","leave":"leave","make":"mehk","they":"they","cry":"cruh-eye","sun":"sun","care":"cerr","think":"think","time":"tuh-eym","burned":"burrn'd"};
+  return text.split(/(\s+)/).map(function(tok){
+    if (/^\s+$/.test(tok) || !tok) return tok;
+    var m = tok.match(/^([^A-Za-z']*)([A-Za-z']+)([^A-Za-z']*)$/);
+    if (!m) return tok;
+    var pre=m[1], core=m[2], post=m[3], low=core.toLowerCase(), rep=null;
+    if (dict[low] !== undefined) rep = dict[low];
+    else if (extra[low] !== undefined) rep = extra[low];
+    else if (/ing$/.test(low) && low.length>4) rep = low.slice(0,-3)+"in'";
+    else rep = core;
+    if (rep !== core && core[0] === core[0].toUpperCase() && rep[0] === rep[0].toLowerCase()){
+      rep = rep[0].toUpperCase()+rep.slice(1);
+    }
+    return pre+rep+post;
+  }).join("");
+}
+$("autoPhonBtn").onclick = function(){
+  var w = sel(); if (!w) return;
+  var src = $("wLineEdit").value || w.line || "";
+  var out = shrekify(src);
+  $("wPhonEdit").value = out;
+  w.phon = out; $("saveMsg").textContent=""; updWordPanel();
+};
 $("testBtn").onclick = function(){ if (sceneBuf) playClip(sel()); };
 $("verifyBtn").onclick = function(){ var w=sel(); patchSel({verified:!w.verified}, true); };
 $("charBtn").onclick = function(){ var w=sel(); patchSel({character: w.character==="Shrek"?"Donkey":"Shrek"}, true); };
@@ -561,6 +609,10 @@ function renderSceneButtons(){
   }).join("");
 }
 renderSceneButtons();
+$("forceRefresh").onclick = function(){
+  var base = location.href.split("?")[0].split("#")[0];
+  location.replace(base + "?v=" + Date.now());
+};
 $("sceneButtons").onclick = function(e){
   var b = e.target.closest("[data-scene]"); if (!b) return;
   var s = SCENES[+b.getAttribute("data-scene")];

@@ -329,6 +329,10 @@ var SEEDS = {
     {id:"w1788803088410", word:"No! you dense irritating", character:"Shrek", start:95.8, end:105.35, verified:true, line:"No! You dense, irritating, miniature beast of burden, ogres are like onions! End of story! Bye-bye! See you later.", phon:"Noh! Ye dense, irr-ih-teh-tin', MIN-ya-churr beast o' BURR-den, OH-grrez arre luh-eyk UN-yinz! End o' STOR-eh! Buh-eye buh-eye! See ye LEH-turr."},
     {id:"w1788803159490", word:"Parfait may be", character:"Donkey", start:105.05, end:113.15, verified:false},
     {id:"w1788803307063", word:"You know I think", character:"Shrek", start:113.15, end:116.0, verified:true}
+  ],
+  musical: [
+    {id:"w1788809305265", word:"Little task my hoof", character:"Donkey", start:3.05, end:7.7, verified:false, line:"Little task my hoof. Rescue a princess, fight a dragon... man, we got jacked!"},
+    {id:"w1788809562806", word:"We?  I don’t remember", character:"Shrek", start:7.75, end:11.7, verified:true, line:"We? I don't remember inviting a donkey on this leg of the journey.", phon:"We? Ah doan't re-MEM-burr in-VUH-eyt-in' a DON-keh on this leg o' the JURR-neh."}
   ]
 };
 var LISTEN_FOR = {
@@ -535,8 +539,39 @@ function shrekify(text){
   text = text.replace(/[\u2018\u2019]/g, "'");
   var dict = {};
   if (window.STUDY && STUDY.WORDS) STUDY.WORDS.forEach(function(w){ if (w.say && w.say !== w.w) dict[w.w] = w.say; });
-  // contractions / extras beyond the study list
-  var extra = {"i'm":"Ah'm","i'll":"Ah'll","i've":"Ah've","you're":"ye're","you'll":"ye'll","my":"ma","was":"wiz","out":"oot","about":"aboot","down":"doon","going":"goin'","really":"REEL-eh","do":"dae","so":"soh","cry":"cruh-eye","care":"cerr","time":"tuh-eym","burned":"burrn'd","whiny":"whuh-ee-neh","suffer":"SUFF-urr","rougher":"RUFF-urr","torches":"TORR-chez","scorches":"SCORR-chez","wonder":"WUN-durr","asunder":"a-SUN-durr","princess":"PRRIN-cess","effort":"EFF-urrt","heaven":"HEV-in","seven":"SEV-in","mention":"MEN-shin","playing":"PLEH-in'","were":"werr","torn":"torrn","make":"mehk"};
+  // hand-verified map: contractions, wee words, song-session words, PRICE family
+  var extra = {"i'm":"Ah'm","i'll":"Ah'll","i've":"Ah've","you're":"ye're","you'll":"ye'll",
+    "my":"ma","was":"wiz","out":"oot","about":"aboot","down":"doon","going":"goin'","really":"REEL-eh",
+    "do":"dae","so":"soh","care":"cerr","time":"tuh-eym","burned":"burrn'd","make":"mehk",
+    "whiny":"whuh-ee-neh","suffer":"SUFF-urr","rougher":"RUFF-urr","torches":"TORR-chez","scorches":"SCORR-chez",
+    "wonder":"WUN-durr","asunder":"a-SUN-durr","princess":"PRRIN-cess","effort":"EFF-urrt","heaven":"HEV-in",
+    "seven":"SEV-in","mention":"MEN-shin","playing":"PLEH-in'","were":"werr","torn":"torrn",
+    "donkey":"DON-keh","journey":"JURR-neh","remember":"re-MEM-burr","never":"NEV-urr",
+    "invite":"in-VUH-eyt","inviting":"in-VUH-eyt-in'","invited":"in-VUH-eyt-ed",
+    "mine":"muh-eyn","fine":"fuh-eyn","line":"luh-eyn","nine":"nuh-eyn","wine":"wuh-eyn",
+    "side":"suh-eyd","ride":"ruh-eyd","wide":"wuh-eyd","life":"luh-eyf","wife":"wuh-eyf","five":"fuh-eyv",
+    "drive":"drruh-eyv","while":"whuh-eyl","white":"whuh-eyt","quite":"kwuh-eyt","bite":"buh-eyt",
+    "night":"nuh-eyt","right":"ruh-eyt","why":"whuh-ey","guy":"guh-ey","try":"truh-ey","cry":"cruh-ey",
+    "fly":"fluh-ey","asinine":"ASS-ih-nuh-eyn"};
+  // words whose final -y is the uh-ee vowel, never the -eh ending
+  var priceY = {"my":1,"by":1,"why":1,"fly":1,"cry":1,"dry":1,"try":1,"sky":1,"shy":1,"sly":1,"spy":1,
+    "fry":1,"ply":1,"pry":1,"thy":1,"buy":1,"guy":1,"apply":1,"reply":1,"rely":1,"deny":1,"defy":1,
+    "supply":1,"imply":1,"comply":1,"july":1,"goodbye":1,"awry":1,"nearby":1,"butterfly":1};
+  var eyKeep = {"they":1,"hey":1};
+  function applyRules(low){
+    var s = low, changed = false;
+    // 1. -ing drops its g
+    if (/ing$/.test(s) && s.length > 4){ s = s.slice(0,-3)+"in'"; changed = true; }
+    // 2. final -ey lowers to -eh (journey, money, valley) - not they/hey; runs BEFORE igh
+    if (/ey(s?)$/.test(s) && s.length >= 4 && !eyKeep[low]){ s = s.replace(/ey(s?)$/,"eh$1"); changed = true; }
+    // 3. final consonant+y lowers to -eh (story-family) - unless it's a PRICE -y word
+    else if (/[bcdfghjklmnpqrstvwxz]y$/.test(s) && s.length >= 4 && !priceY[low]){ s = s.slice(0,-1)+"eh"; changed = true; }
+    // 4. igh is always the uh-ee vowel: night-family, fighting, bright...
+    if (/igh/.test(s)){ s = s.replace(/ight/g,"uh-eyt").replace(/igh/g,"uh-ey"); changed = true; }
+    // 5. final -er(s) takes the tapped R
+    if (/[a-z]er(s?)$/.test(s) && s.length >= 4){ s = s.replace(/er(s?)$/,"urr$1"); changed = true; }
+    return changed ? s : null;
+  }
   return text.split(/(\s+)/).map(function(tok){
     if (/^\s+$/.test(tok) || !tok) return tok;
     var m = tok.match(/^([^A-Za-z']*)([A-Za-z']+)([^A-Za-z']*)$/);
@@ -544,8 +579,7 @@ function shrekify(text){
     var pre=m[1], core=m[2], post=m[3], low=core.toLowerCase(), rep=null;
     if (dict[low] !== undefined) rep = dict[low];
     else if (extra[low] !== undefined) rep = extra[low];
-    else if (/ing$/.test(low) && low.length>4) rep = low.slice(0,-3)+"in'";
-    else rep = core;
+    else { var r = applyRules(low); rep = (r !== null) ? r : core; }
     if (rep !== core && core[0] === core[0].toUpperCase() && rep[0] === rep[0].toLowerCase()){
       rep = rep[0].toUpperCase()+rep.slice(1);
     }

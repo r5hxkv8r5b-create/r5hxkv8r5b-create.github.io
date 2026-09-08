@@ -643,7 +643,7 @@ var DIALECT_MODES = {
       "couldn't":"couldnae","shouldn't":"shouldnae","isn't":"isnae","wasn't":"wisnae","was":"wis",
       "of":"o'","all":"aw","ball":"baw","football":"fitba","one":"wan","two":"twa","head":"heid",
       "dead":"deid","house":"hoose","out":"oot","down":"doon","about":"aboot","know":"ken","yes":"aye",
-      "no":"naw","give":"gie","my":"ma","i":"ah","i'm":"ah'm","just":"jist","now":"noo","old":"auld",
+      "no":"naw","give":"gie","my":"ma","i":"ah","i'm":"ah'm","i'd":"ah'd","i'll":"ah'll","i've":"ah've","just":"jist","now":"noo","old":"auld",
       "do":"dae","have":"huv","from":"fae","small":"wee","little":"wee"},
     rules: function(s){
       if (/ing$/.test(s) && s.length > 4 && !ING_KEEP[s]) s = s.slice(0,-3)+"in'";
@@ -659,10 +659,14 @@ var DIALECT_MODES = {
       "girl":"quine","girls":"quines","child":"bairn","children":"bairns","know":"ken","home":"hame",
       "going":"gyaun","go":"gang","very":"affa","old":"auld","wrong":"vrang","i":"a","my":"ma",
       "you":"ye","your":"yer","yes":"aye","was":"wis","out":"oot","down":"doon","about":"aboot",
-      "house":"hoose","now":"noo","to":"tae","of":"o'","have":"hae"},
+      "house":"hoose","now":"noo","to":"tae","of":"o'","have":"hae",
+      "i'd":"a'd","i'm":"a'm","i'll":"a'll","i've":"a've","away":"awa","alone":"aleen",
+      "so":"sae","world":"warld","known":"kent","knew":"kent","night":"nicht","right":"richt",
+      "light":"licht","might":"micht","daughter":"dother","water":"watter"},
     rules: function(s){
       if (/ing$/.test(s) && s.length > 4 && !ING_KEEP[s]) s = s.slice(0,-3)+"in'";
       if (/^wh/.test(s)) s = "f"+s.slice(2);               // whatever -> fitever territory
+      s = s.replace(/ight/g, "icht");                       // nicht, richt, bricht
       return s;
     }
   },

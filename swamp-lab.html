@@ -135,6 +135,7 @@
         <div class="row">
           <button class="btn dark grow" id="melodyModelBtn">Myers&rsquo; melody</button>
           <button class="btn clay grow" id="melodyCompareBtn">&#9679; Compare mine</button>
+          <button class="btn gold grow" id="melodyLiveBtn">&#9654; Live trace</button>
         </div>
       </div>
       <div id="recStatus" class="status hide"></div>
@@ -1072,6 +1073,75 @@ var COLD = [{"std": "I told you to stay out of my swamp.", "shrek": "Ah told you
       };
       mr.start();
       setTimeout(function(){ if (mr.state==="recording") mr.stop(); }, dur*1000);
+    }).catch(function(e){ $("melodyScore").textContent = "Mic failed: "+e.name; });
+  };
+
+  // ---------------- live trace (karaoke mode) ----------------
+  var liveOn = false, liveStream = null, liveRaf = 0, liveRaw = [];
+  function stopLive(report){
+    liveOn = false;
+    cancelAnimationFrame(liveRaf);
+    if (liveStream){ liveStream.getTracks().forEach(function(t){t.stop();}); liveStream = null; }
+    $("melodyLiveBtn").innerHTML = "\u25B6 Live trace";
+    if (report && liveRaw.length){
+      mineRaw = liveRaw.slice();
+      mineSemis = toSemis(mineRaw);
+      drawMelody();
+      var c = (modelSemis && mineSemis) ? corrScore(resample(modelSemis,140), resample(mineSemis,140)) : null;
+      renderReport(pitchStats(modelRaw), pitchStats(mineRaw), c);
+      $("melodyScore").textContent = "Live run done \u2014 report below. Gold = the model, green = you.";
+    }
+  }
+  $("melodyLiveBtn").onclick = function(){
+    if (liveOn){ stopLive(true); return; }
+    if (!sceneBuf) return;
+    var w = sel();
+    if (!modelRaw){ modelRaw = trackPitch(sceneBuf, w.start, w.end); modelSemis = toSemis(modelRaw); }
+    drawMelody();
+    var c = ensureCtx();
+    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true}}).then(function(stream){
+      liveOn = true; liveStream = stream; liveRaw = []; mineSemis = null; mineRaw = null;
+      $("melodyLiveBtn").innerHTML = "\u25A0 Stop";
+      $("melodyScore").textContent = "LIVE \u2014 speak WITH him. (Headphones, or the mic hears Shrek too.)";
+      var srcNode = c.createMediaStreamSource(stream);
+      var an = c.createAnalyser(); an.fftSize = 2048;
+      srcNode.connect(an);
+      var buf = new Float32Array(an.fftSize);
+      var sr = c.sampleRate;
+      var minLag = Math.floor(sr/400), maxLag = Math.min(an.fftSize-1, Math.ceil(sr/70));
+      var dur = (w.end - w.start) + 0.6;
+      var t0 = c.currentTime;
+      playBuffer(sceneBuf, w.start, w.end, w.id);
+      var voiced = [];
+      function frame(){
+        if (!liveOn) return;
+        var el = c.currentTime - t0;
+        if (el > dur){ stopLive(true); return; }
+        an.getFloatTimeDomainData(buf);
+        var e = 0; for (var i=0;i<buf.length;i++) e += buf[i]*buf[i];
+        var rms = Math.sqrt(e/buf.length);
+        var f = 0;
+        if (rms > 0.015){
+          var best = 0, bestLag = 0;
+          for (var lag=minLag; lag<=maxLag; lag+=2){
+            var s2 = 0;
+            for (var k=0;k<buf.length-lag;k+=4) s2 += buf[k]*buf[k+lag];
+            if (s2>best){ best=s2; bestLag=lag; }
+          }
+          if (bestLag && best/(e||1) > 0.15) f = sr/bestLag;
+        }
+        liveRaw.push({t: el, f: f});
+        if (f > 0) voiced.push(f);
+        // live overlay: semitones vs running median of the speaker's own voice
+        if (voiced.length > 8){
+          var vs = voiced.slice().sort(function(a,b){return a-b;});
+          var med = vs[Math.floor(vs.length/2)];
+          mineSemis = liveRaw.map(function(p){ return {t: p.t, s: p.f>0 ? 12*Math.log(p.f/med)/Math.LN2 : null}; });
+          drawMelody();
+        }
+        liveRaf = requestAnimationFrame(frame);
+      }
+      liveRaf = requestAnimationFrame(frame);
     }).catch(function(e){ $("melodyScore").textContent = "Mic failed: "+e.name; });
   };
 

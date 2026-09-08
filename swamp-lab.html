@@ -295,7 +295,8 @@
 var SCENES = [
   {id:"onion", name:"Movie \u2014 Ogres are like Onions (1:56)", url:"onion-scene-audio.m4a"},
   {id:"musical", name:"Musical \u2014 same scene (1:19)", url:"musical-onion-scene.m4a"},
-  {id:"intro", name:"Intro (3:44)", url:"intro-scene.m4a"}
+  {id:"intro", name:"Musical \u2014 Intro (3:44)", url:"intro-scene.m4a"},
+  {id:"movie-intro", name:"Movie \u2014 Intro (0:41)", url:"movie-intro-scene.m4a"}
 ];
 
 var ENV_STEP = 0.05;
@@ -353,6 +354,10 @@ var SEEDS = {
   musical: [
     {id:"w1788809305265", word:"Little task my hoof", character:"Donkey", start:3.05, end:7.7, verified:false, line:"Little task my hoof. Rescue a princess, fight a dragon... man, we got jacked!"},
     {id:"w1788809562806", word:"We?  I don’t remember", character:"Shrek", start:7.75, end:11.7, verified:true, line:"We? I don't remember inviting a donkey on this leg of the journey.", phon:"We? Ah doan't re-MEM-burr in-VUH-eyt-in' a DON-keh on this leg o' the JURR-neh."}
+  ],
+  intro: [
+    {id:"w1788839018951", word:"Once upon a time", character:"Shrek", start:0.75, end:27.6, verified:true, line:"Once upon a time, there was a little ogre named Shrek, who lived with his parents in a bog by a tree. It was a pretty nasty place, but he was happy because ogres like nasty. On his birthday, the little ogre's parents sat him down to talk, just as all ogre parents had for hundreds of years before.", phon:"Once upon a tuh-eym, therr wiz a little OH-grr nehm'd Shrek, who lived with his parents in a bog by a tree. It wiz a pretteh nasteh plehs, but he wiz happeh because OH-grrez luh-eyk nasteh. On his BURRTH-deh, the little OH-grr's parents sat him doon to tawk, just as all OH-grr parents had forr hundreds o' yearrs beforr."},
+    {id:"w1788839630068", word:"And so he went", character:"Shrek", start:188.85, end:223.45, verified:true, line:"And so, the little ogre went on his merry way, and wherever he went, crowds would welcome him with festive torches and fun things like that. But whenever the little ogre tried to join in the fun, his new friends would suddenly realize they had other things to do. So the ogre did what his parents had told him to. He found a perfectly rancid swamp, and there he stayed for many years, all alone, but very happy with how his life had turned out.", phon:"An' soh, the little OH-grr went on his merreh weh, an' wherevurr he went, croods wuid welcome him with festive TORR-chez an' fun things luh-eyk that. But whenevurr the little OH-grr truh-eyd to join in the fun, his new friends wuid suddenleh ree-a-luh-eyz they had othurr things to do. Soh the OH-grr did what his parents had told him to. He foond a PURR-fect-leh rancid swamp, an' therr he stehd forr maneh yearrs, all a-LOHN, but vereh happeh with how his luh-eyf had turned oot."}
   ]
 };
 var LISTEN_FOR = {
@@ -591,7 +596,13 @@ function shrekify(text){
     "star":"starr","stars":"starrz","learn":"lurrn","learns":"lurrnz","learned":"lurrn'd","yearn":"yurrn",
     "verse":"vurrs","verses":"vurrs-ez","heart":"hARRt","hearts":"hARRts","dark":"dARRk","girl":"gurrl",
     "girls":"gurrlz","her":"hurr","hers":"hurrz","guard":"guARRd","perfect":"PURR-fect","ogre":"OH-grr",
-    "ogre's":"OH-grr's","hero's":"HEE-rroh's"};
+    "ogre's":"OH-grr's","hero's":"HEE-rroh's",
+    "there":"therr","where":"wherr","fair":"ferr","blame":"blehm","made":"mehd","sign":"suh-eyn",
+    "shine":"shuh-eyn","snow":"snoh","snowball":"SNOH-ball","remind":"re-MUH-eynd","reminds":"re-MUH-eyndz",
+    "liked":"luh-eykt","named":"nehm'd","name":"nehm","place":"plehs","places":"plehs-ez",
+    "birthday":"BURRTH-deh","before":"beforr","years":"yearrs","year":"yearr","crowd":"crood",
+    "crowds":"croods","found":"foond","tried":"truh-eyd","try":"truh-ey","stayed":"stehd",
+    "turned":"turrn'd","turn":"turrn","realize":"ree-a-luh-eyz","perfectly":"PURR-fect-leh"};
   // words whose final -y is the uh-ee vowel, never the -eh ending
   var priceY = {"my":1,"by":1,"why":1,"fly":1,"cry":1,"dry":1,"try":1,"sky":1,"shy":1,"sly":1,"spy":1,
     "fry":1,"ply":1,"pry":1,"thy":1,"buy":1,"guy":1,"apply":1,"reply":1,"rely":1,"deny":1,"defy":1,

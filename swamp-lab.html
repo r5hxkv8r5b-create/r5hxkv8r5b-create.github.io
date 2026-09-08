@@ -222,10 +222,14 @@
     </div>
     <div class="panel">
       <div style="font-weight:800">Songbook <span class="dim" style="font-weight:600">&mdash; saved on this device only</span></div>
-      <div class="dim" style="margin:6px 0 8px">Paste your marked-up song version here. It stays in this phone's storage &mdash; it never travels in exports or app updates, so paste it once per device.</div>
-      <textarea id="songbook" rows="10" style="width:100%;box-sizing:border-box;background:var(--deep);color:var(--gold);border:2px solid var(--gold);border-radius:12px;padding:12px;font-size:16px;font-weight:700;line-height:1.6"></textarea>
+      <div class="dim" style="margin:6px 0 8px">Your marked-up songs, one per title. They stay in this phone's storage &mdash; never in exports or app updates, so paste each song once per device.</div>
+      <div id="songList" style="margin-bottom:8px"></div>
+      <input type="text" id="songTitle" placeholder="Song title" style="width:100%;box-sizing:border-box;background:var(--bog);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:10px;font-size:15px;font-weight:700;margin-bottom:6px">
+      <textarea id="songbook" rows="10" placeholder="Paste the marked-up version here" style="width:100%;box-sizing:border-box;background:var(--deep);color:var(--gold);border:2px solid var(--gold);border-radius:12px;padding:12px;font-size:16px;font-weight:700;line-height:1.6"></textarea>
       <div class="row" style="align-items:center">
-        <button class="btn gold" id="songSave">Save songbook</button>
+        <button class="btn gold" id="songSave">Save song</button>
+        <button class="btn dark" id="songNew">New</button>
+        <button class="btn danger" id="songDelete">Delete</button>
         <span id="songMsg" style="font-weight:700"></span>
       </div>
     </div>
@@ -290,7 +294,8 @@
 // Waveform + speech segments are computed automatically when a scene loads.
 var SCENES = [
   {id:"onion", name:"Movie \u2014 Ogres are like Onions (1:56)", url:"onion-scene-audio.m4a"},
-  {id:"musical", name:"Musical \u2014 same scene (1:19)", url:"musical-onion-scene.m4a"}
+  {id:"musical", name:"Musical \u2014 same scene (1:19)", url:"musical-onion-scene.m4a"},
+  {id:"intro", name:"Intro (3:44)", url:"intro-scene.m4a"}
 ];
 
 var ENV_STEP = 0.05;
@@ -1097,14 +1102,61 @@ var COLD = [{"std": "I told you to stay out of my swamp.", "shrek": "Ah told you
   $("recitalReset").onclick = function(){ recital.stage = 1; saveRecital(); updRecital(); };
   updRecital();
 
-  // ---------------- songbook (device-local) ----------------
-  try { var sb0 = localStorage.getItem("swampLabSongbook"); if (sb0) $("songbook").value = sb0; } catch(e){}
+  // ---------------- songbook (device-local, multi-song) ----------------
+  var songs = {};
+  try {
+    var sbJ = localStorage.getItem("swampLabSongbook2");
+    if (sbJ) songs = JSON.parse(sbJ) || {};
+    var legacy = localStorage.getItem("swampLabSongbook");
+    if (legacy && !Object.keys(songs).length){ songs["My song"] = legacy; }
+  } catch(e){}
+  var curSong = Object.keys(songs)[0] || "";
+  function saveSongs(){
+    try { localStorage.setItem("swampLabSongbook2", JSON.stringify(songs)); return true; }
+    catch(e){ return false; }
+  }
+  function renderSongList(){
+    var names = Object.keys(songs);
+    $("songList").innerHTML = names.length
+      ? names.map(function(n){
+          return '<button class="chip'+(n===curSong?" sel":"")+'" data-song="'+escapeHtml(n)+'">'+escapeHtml(n)+'</button>';
+        }).join("")
+      : '<span class="dim">No songs saved yet on this device.</span>';
+  }
+  function loadSong(name){
+    curSong = name;
+    $("songTitle").value = name;
+    $("songbook").value = songs[name] || "";
+    $("songMsg").textContent = "";
+    renderSongList();
+  }
+  $("songList").onclick = function(e){
+    var b = e.target.closest("[data-song]"); if (!b) return;
+    loadSong(b.getAttribute("data-song"));
+  };
   $("songSave").onclick = function(){
-    try { localStorage.setItem("swampLabSongbook", $("songbook").value);
-      $("songMsg").textContent = "Saved"; $("songMsg").style.color = "#A6D96A"; }
-    catch(e){ $("songMsg").textContent = "Save failed"; $("songMsg").style.color = "#E8A0A0"; }
+    var title = ($("songTitle").value || "").trim() || "Untitled";
+    songs[title] = $("songbook").value;
+    if (curSong && curSong !== title) delete songs[curSong] === undefined; // keep old entries; renames create new
+    curSong = title;
+    if (saveSongs()){ $("songMsg").textContent = "Saved"; $("songMsg").style.color = "#A6D96A"; }
+    else { $("songMsg").textContent = "Save failed"; $("songMsg").style.color = "#E8A0A0"; }
+    renderSongList();
+  };
+  $("songNew").onclick = function(){
+    curSong = ""; $("songTitle").value = ""; $("songbook").value = ""; $("songMsg").textContent = "";
+    renderSongList();
+  };
+  $("songDelete").onclick = function(){
+    if (!curSong || songs[curSong] === undefined) return;
+    delete songs[curSong];
+    saveSongs();
+    curSong = Object.keys(songs)[0] || "";
+    if (curSong) loadSong(curSong); else { $("songTitle").value=""; $("songbook").value=""; }
+    renderSongList();
   };
   $("songbook").addEventListener("input", function(){ $("songMsg").textContent = ""; });
+  if (curSong) loadSong(curSong); else renderSongList();
 
   // ---------------- cold reads ----------------
   var coldStats = {done:0, marks:0, possible:0};

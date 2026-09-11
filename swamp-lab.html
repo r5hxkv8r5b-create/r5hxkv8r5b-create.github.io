@@ -308,13 +308,13 @@
 // then add a line: {id:"shortname", name:"Label shown on the button", url:"filename.m4a"}
 // Waveform + speech segments are computed automatically when a scene loads.
 var SCENES = [
-  {id:"onion", name:"Movie \u2014 Ogres are like Onions (1:56)", url:"onion-scene-audio.m4a"},
-  {id:"musical", name:"Musical \u2014 same scene (1:19)", url:"musical-onion-scene.m4a"},
-  {id:"intro", name:"Musical \u2014 Intro (3:44)", url:"intro-scene.m4a"},
-  {id:"movie-intro", name:"Movie \u2014 Intro (0:41)", url:"movie-intro-scene.m4a"},
-  {id:"act1-scene8", name:"Musical \u2014 Act 1 Scene 8 (1:01)", url:"act1-scene8.m4a"},
-  {id:"movie-a1s8-p1", name:"Movie \u2014 Act 1 Sc 8, Part 1 (0:28)", url:"movie-act1-scene8-p1.m4a"},
-  {id:"movie-a1s8-p2", name:"Movie \u2014 Act 1 Sc 8, Part 2 (0:34)", url:"movie-act1-scene8-p2.m4a"}
+  {id:"movie-intro", group:"Act 1, Scene 1 \u2014 Storybook Intro", name:"Movie (0:41)", url:"movie-intro-scene.m4a"},
+  {id:"intro", group:"Act 1, Scene 1 \u2014 Storybook Intro", name:"Musical (3:44)", url:"intro-scene.m4a"},
+  {id:"onion", group:"Act 1, Scene 7 \u2014 Ogres are like Onions", name:"Movie (1:56)", url:"onion-scene-audio.m4a"},
+  {id:"musical", group:"Act 1, Scene 7 \u2014 Ogres are like Onions", name:"Musical (1:19)", url:"musical-onion-scene.m4a"},
+  {id:"movie-a1s8-p1", group:"Act 1, Scene 8 \u2014 The Dragon's Keep", name:"Movie \u2014 Part 1 (0:28)", url:"movie-act1-scene8-p1.m4a"},
+  {id:"movie-a1s8-p2", group:"Act 1, Scene 8 \u2014 The Dragon's Keep", name:"Movie \u2014 Part 2 (0:34)", url:"movie-act1-scene8-p2.m4a"},
+  {id:"act1-scene8", group:"Act 1, Scene 8 \u2014 The Dragon's Keep", name:"Musical (1:01)", url:"act1-scene8.m4a"}
 ];
 
 var ENV_STEP = 0.05;
@@ -810,9 +810,16 @@ function setupScene(buf, id, label){
   if (typeof updRecitalHook === "function") updRecitalHook();
 }
 function renderSceneButtons(){
-  $("sceneButtons").innerHTML = SCENES.map(function(s,i){
-    return '<button class="btn" data-scene="'+i+'" style="display:block;width:100%;margin:6px 0">'+escapeHtml(s.name)+'</button>';
-  }).join("");
+  var out = [], lastGroup = null;
+  SCENES.forEach(function(s,i){
+    var g = s.group || "";
+    if (g !== lastGroup){
+      out.push('<div style="font-weight:900;color:var(--gold);margin:14px 0 4px;font-size:15px">'+escapeHtml(g)+'</div>');
+      lastGroup = g;
+    }
+    out.push('<button class="btn" data-scene="'+i+'" style="display:block;width:100%;margin:6px 0">'+escapeHtml(s.name)+'</button>');
+  });
+  $("sceneButtons").innerHTML = out.join("");
 }
 renderSceneButtons();
 $("forceRefresh").onclick = function(){

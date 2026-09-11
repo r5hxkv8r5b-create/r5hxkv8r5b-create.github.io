@@ -277,6 +277,18 @@
     </div>
   </div>
 
+  <div id="tab-songs" class="hide">
+    <div class="panel">
+      <div style="font-weight:800">Songs <span class="dim" style="font-weight:600">&mdash; from your GitHub songbook</span></div>
+      <div class="dim" style="margin:6px 0 8px">Loads <b>songbook.html</b> from the same repo as this page. Update the file on GitHub, then reload here.</div>
+      <div class="row" style="align-items:center">
+        <button class="btn dark" id="songsReload">&#8635; Reload songs</button>
+        <span id="songsMsg" class="dim"></span>
+      </div>
+    </div>
+    <div id="songsDoc"></div>
+  </div>
+
 </div>
 
 <nav>
@@ -285,6 +297,7 @@
   <button data-tab="study">Study</button>
   <button data-tab="quiz">Quiz</button>
   <button data-tab="perform">Perform</button>
+  <button data-tab="songs">Songs</button>
 </nav>
 
 <script>
@@ -914,13 +927,73 @@ $("diagBtn").onclick = function(){
   } else { lines.push("permission state: (query unsupported)"); tryMic(); }
 };
 
+// ---------------- songs tab: fetch the user's songbook.html from the repo ----------------
+var songsLoaded = false;
+function parseSongbook(text){
+  var songs = [];
+  try {
+    var doc = new DOMParser().parseFromString(text, "text/html");
+    var ps = doc.querySelectorAll("p, h1, h2, h3");
+    if (ps.length){
+      var cur = null;
+      ps.forEach(function(p){
+        var t = (p.textContent || "").replace(/\u00a0/g," ").trim();
+        var isTitle = /^H[1-3]$/i.test(p.tagName) || /\bp1\b/.test(p.className||"") ||
+          !!(p.querySelector && p.querySelector("span.s1"));
+        if (isTitle && t){ cur = {title: t, lines: []}; songs.push(cur); }
+        else {
+          if (!cur){ cur = {title: "Untitled", lines: []}; songs.push(cur); }
+          cur.lines.push(t);
+        }
+      });
+    }
+  } catch(e){}
+  if (!songs.length && text.trim()){
+    songs = [{title:"Songbook", lines: text.replace(/<[^>]*>/g,"").split(/\r?\n/)}];
+  }
+  songs.forEach(function(s){
+    while (s.lines.length && !s.lines[0]) s.lines.shift();
+    while (s.lines.length && !s.lines[s.lines.length-1]) s.lines.pop();
+  });
+  return songs.filter(function(s){ return s.lines.length; });
+}
+function renderSongsDoc(songs){
+  $("songsDoc").innerHTML = songs.map(function(s){
+    var body = s.lines.map(function(l){
+      return l ? '<div>'+escapeHtml(l)+'</div>' : '<div style="height:12px"></div>';
+    }).join("");
+    return '<div class="panel"><div style="font-weight:900;font-size:19px;color:var(--gold);margin-bottom:8px">'+
+      escapeHtml(s.title)+'</div>'+
+      '<div style="background:var(--deep);border:1.5px solid var(--gold);border-radius:12px;padding:12px;'+
+      'font-size:16px;font-weight:700;line-height:1.6;color:var(--gold)">'+body+'</div></div>';
+  }).join("");
+}
+function loadSongsDoc(force){
+  if (songsLoaded && !force) return;
+  $("songsMsg").textContent = "Loading\u2026";
+  fetch("songbook.html", {cache:"no-store"}).then(function(r){
+    if (!r.ok) throw new Error("HTTP "+r.status);
+    return r.text();
+  }).then(function(text){
+    var songs = parseSongbook(text);
+    if (!songs.length){ $("songsMsg").textContent = "songbook.html loaded but no songs found in it."; return; }
+    renderSongsDoc(songs);
+    songsLoaded = true;
+    $("songsMsg").textContent = songs.length + " song" + (songs.length>1?"s":"") + " loaded.";
+  }).catch(function(e){
+    $("songsMsg").textContent = "Couldn't load songbook.html \u2014 is it uploaded next to this page? ("+e.message+")";
+  });
+}
+$("songsReload").onclick = function(){ loadSongsDoc(true); };
+
 // tabs
 document.querySelector("nav").addEventListener("click", function(e){
   var t = e.target.getAttribute("data-tab"); if (!t) return;
   document.querySelectorAll("nav button").forEach(function(b){ b.className = b.getAttribute("data-tab")===t ? "on" : ""; });
-  ["lab","tune","study","quiz","perform"].forEach(function(k){
+  ["lab","tune","study","quiz","perform","songs"].forEach(function(k){
     $("tab-"+k).classList.toggle("hide", k!==t);
   });
+  if (t === "songs") loadSongsDoc(false);
   drawAll();
 });
 

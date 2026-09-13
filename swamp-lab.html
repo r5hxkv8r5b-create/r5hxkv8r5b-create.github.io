@@ -111,6 +111,22 @@
       <div><span class="word-title" id="wTitle"></span> <span class="meta" id="wMeta"></span></div>
       <div id="wLine" class="hide" style="color:#DCE8D2;font-size:15px;margin:8px 0 2px;line-height:1.45"></div>
       <div id="wPhon" class="hide" style="background:var(--deep);border:1.5px solid var(--gold);border-radius:12px;padding:10px;color:var(--gold);font-size:16px;font-weight:800;line-height:1.5;margin:6px 0 10px"></div>
+      <div id="memoWrap" class="hide" style="border:1.5px solid var(--line);border-radius:12px;padding:10px;margin:8px 0">
+        <div style="font-weight:800;margin-bottom:4px">Memorize <span id="memoStreak" class="dim" style="font-weight:600"></span></div>
+        <div id="memoCue" class="dim" style="font-size:13px;margin-bottom:6px"></div>
+        <div class="row" style="margin:0 0 8px">
+          <button class="chip" id="memoStage0">1 Read</button>
+          <button class="chip" id="memoStage1">2 Letters</button>
+          <button class="chip" id="memoStage2">3 Blind</button>
+        </div>
+        <div id="memoView" style="background:var(--bog);border-radius:10px;padding:10px;font-size:16px;font-weight:700;line-height:1.6;min-height:34px"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn dark grow" id="memoReveal">Reveal line</button>
+          <button class="btn gold grow" id="memoClean">Said it clean</button>
+          <button class="btn danger grow" id="memoSlip">Slipped</button>
+        </div>
+        <div id="memoMsg" class="dim" style="margin-top:6px;font-size:13px"></div>
+      </div>
       <div id="wListen" style="color:#DCE8D2;font-size:15px;margin:8px 0 12px;line-height:1.45"></div>
       <div class="row">
         <button class="btn grow" id="hearBtn">&#9654; Hear it</button>
@@ -519,6 +535,50 @@ function refreshChips(){
   $("chips").onclick = f; $("chips2").onclick = f;
 }
 $("charFilter").addEventListener("change", refreshChips);
+function firstLetters(line){
+  return line.split(/\s+/).map(function(tok){
+    var m = tok.match(/^([^A-Za-z]*)([A-Za-z])[A-Za-z\u2019']*([^A-Za-z\u2019']*)$/);
+    return m ? (m[1]+m[2]+m[3]) : tok;
+  }).join(" ").replace(/([.!?\u2026]) /g, "$1<br>");
+}
+function memoKey(){ return "swampLabMemo:"+(typeof sceneId!=="undefined" && sceneId ? sceneId : "scene"); }
+function memoState(){
+  try { return JSON.parse(localStorage.getItem(memoKey())) || {}; } catch(e){ return {}; }
+}
+function memoSave(st){ try { localStorage.setItem(memoKey(), JSON.stringify(st)); } catch(e){} }
+function memoFor(id){
+  var st = memoState();
+  return st[id] || {stage:0, streak:0, last:0};
+}
+function memoSet(id, rec){ var st = memoState(); st[id] = rec; memoSave(st); }
+var memoRevealed = false;
+function updMemo(){
+  var w = sel();
+  if (!w || !w.line){ $("memoWrap").classList.add("hide"); return; }
+  $("memoWrap").classList.remove("hide");
+  var rec = memoFor(w.id);
+  memoRevealed = false;
+  // cue: previous marker's tail
+  var ws = sorted(), idx = ws.findIndex(function(x){return x.id===w.id;});
+  if (idx > 0){
+    var prev = ws[idx-1];
+    var cueSrc = prev.line || prev.word || "";
+    var tail = cueSrc.split(/\s+/).slice(-6).join(" ");
+    $("memoCue").textContent = "CUE ("+prev.character+"): \u2026"+tail;
+  } else $("memoCue").textContent = "CUE: (scene opens \u2014 you're first)";
+  [0,1,2].forEach(function(s){
+    $("memoStage"+s).classList.toggle("sel", rec.stage===s);
+  });
+  var view = "";
+  if (rec.stage === 0) view = escapeHtml(w.line);
+  else if (rec.stage === 1) view = firstLetters(escapeHtml(w.line));
+  else view = '<span class="dim">(nothing \u2014 say it, then reveal to check)</span>';
+  $("memoView").innerHTML = view;
+  $("memoStreak").textContent = rec.streak ? "\u2014 clean streak "+rec.streak : "";
+  $("memoMsg").textContent = rec.stage===0 ? "Read it aloud a few times, then move to Letters."
+    : rec.stage===1 ? "Say the line out loud from the letters \u2014 standing, with the move if it has one."
+    : "Full recall. Cue line above is your entrance.";
+}
 function updWordPanel(){
   var w = sel(); if (!w) return;
   $("wTitle").textContent = "\u201C"+w.word+"\u201D";
@@ -528,6 +588,7 @@ function updWordPanel(){
   if (w.phon){ $("wPhon").textContent = w.phon; $("wPhon").classList.remove("hide"); }
   else $("wPhon").classList.add("hide");
   $("wListen").textContent = LISTEN_FOR[w.word.toLowerCase()] || DEFAULT_LISTEN;
+  updMemo();
 }
 function updTuner(){
   var w = sel(); if (!w) return;
@@ -584,6 +645,46 @@ document.querySelectorAll(".nudge").forEach(function(row){
   });
 });
 $("wName").addEventListener("input", function(){ patchSel({word:$("wName").value}); $("wName").focus(); });
+[0,1,2].forEach(function(s){
+  $("memoStage"+s).onclick = function(){
+    var w = sel(); if (!w) return;
+    var rec = memoFor(w.id); rec.stage = s; rec.streak = 0; memoSet(w.id, rec); updMemo();
+  };
+});
+$("memoReveal").onclick = function(){
+  var w = sel(); if (!w || !w.line) return;
+  memoRevealed = !memoRevealed;
+  var rec = memoFor(w.id);
+  if (memoRevealed){
+    $("memoView").innerHTML = escapeHtml(w.line);
+    $("memoReveal").textContent = "Hide again";
+    $("memoMsg").textContent = "Check word-for-word \u2014 mark every wrong word before it locks in.";
+  } else {
+    $("memoReveal").textContent = "Reveal line";
+    updMemo();
+  }
+};
+$("memoClean").onclick = function(){
+  var w = sel(); if (!w) return;
+  var rec = memoFor(w.id);
+  rec.streak++; rec.last = Date.now();
+  if (rec.streak >= 3 && rec.stage < 2){
+    rec.stage++; rec.streak = 0;
+    memoSet(w.id, rec); updMemo();
+    $("memoMsg").textContent = "Three clean \u2014 scaffold fades: moved up a stage.";
+    return;
+  }
+  memoSet(w.id, rec); updMemo();
+};
+$("memoSlip").onclick = function(){
+  var w = sel(); if (!w) return;
+  var rec = memoFor(w.id);
+  rec.streak = 0; rec.last = Date.now();
+  if (rec.stage === 2){ rec.stage = 1; memoSet(w.id, rec); updMemo();
+    $("memoMsg").textContent = "Slipped at Blind \u2014 back to Letters, that's how the scaffold works."; return; }
+  memoSet(w.id, rec); updMemo();
+  $("memoMsg").textContent = "Streak reset. Reveal, find the exact wrong word, fix it now.";
+};
 $("wLineEdit").addEventListener("input", function(){ var w=sel(); if (w){ w.line=$("wLineEdit").value; $("saveMsg").textContent=""; updWordPanel(); } });
 $("wPhonEdit").addEventListener("input", function(){ var w=sel(); if (w){ w.phon=$("wPhonEdit").value; $("saveMsg").textContent=""; updWordPanel(); } });
 
